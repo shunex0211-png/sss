@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>美容師塾 塾生管理</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', sans-serif; background: #f4f4f6; color: #333; }
+
+    header { background: #1e1e1e; color: #fff; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+    header h1 { font-size: 17px; font-weight: 600; letter-spacing: 0.06em; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .back-btn { background: none; border: 1px solid #555; color: #bbb; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .back-btn:hover { border-color: #aaa; color: #fff; }
+    .settings-btn { background: none; border: 1px solid #555; color: #bbb; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .settings-btn:hover { border-color: #aaa; color: #fff; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* List */
+    .list-container { max-width: 720px; margin: 32px auto; padding: 0 16px; }
+    .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .list-header h2 { font-size: 20px; }
+    .btn-primary { background: #e0535b; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .btn-primary:hover { background: #c9464d; }
+    .btn-secondary { background: #f0f0f0; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .btn-secondary:hover { background: #e4e4e4; }
+    .btn-danger { background: #ff4d4f; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+    .btn-danger:hover { background: #d9363e; }
+    .btn-edit { background: #f0f0f0; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+    .btn-edit:hover { background: #e4e4e4; }
+
+    .student-card { background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,0.07); cursor: pointer; transition: box-shadow 0.15s; }
+    .student-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.12); }
+    .student-card .info h3 { font-size: 16px; margin-bottom: 4px; }
+    .student-card .info p { font-size: 13px; color: #888; }
+    .student-card .arrow { color: #ccc; font-size: 20px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+    .empty-state p { font-size: 15px; margin-bottom: 16px; }
+
+    /* Modal base */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #fff; border-radius: 14px; padding: 28px; width: 100%; max-width: 480px; margin: 16px; max-height: 90vh; overflow-y: auto; }
+    .modal h2 { font-size: 18px; margin-bottom: 4px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 5px; }
+    .form-group input, .form-group textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 15px; outline: none; font-family: inherit; }
+    .form-group input:focus, .form-group textarea:focus { border-color: #e0535b; }
+    .form-section { font-size: 11px; font-weight: 600; color: #aaa; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid #eee; padding-bottom: 6px; margin: 20px 0 14px; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+    .modal-actions .btn-primary { flex: 1; }
+    .modal-actions .btn-secondary { flex: 1; }
+
+    /* Detail */
+    .detail-container { max-width: 920px; margin: 0 auto; padding: 24px 16px 80px; }
+    .detail-header-card { background: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .detail-header-card .name { font-size: 22px; font-weight: 700; margin-bottom: 5px; }
+    .detail-header-card .contact { font-size: 13px; color: #888; margin-bottom: 10px; }
+    .sns-handles { display: flex; gap: 8px; flex-wrap: wrap; }
+    .sns-handle { font-size: 12px; background: #f0f0f0; padding: 4px 10px; border-radius: 20px; color: #555; }
+    .sns-handle strong { font-weight: 600; }
+    .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .month-nav button { background: #fff; border: 1px solid #ddd; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .month-nav button:hover { background: #f0f0f0; }
+    .month-label { font-size: 17px; font-weight: 600; min-width: 115px; text-align: center; }
+
+    .tabs { display: flex; gap: 4px; background: #e5e5ea; padding: 4px; border-radius: 10px; margin-bottom: 20px; }
+    .tab-btn { flex: 1; padding: 8px 6px; border: none; background: none; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 500; color: #666; transition: all 0.15s; white-space: nowrap; }
+    .tab-btn.active { background: #fff; color: #222; box-shadow: 0 1px 4px rgba(0,0,0,0.1); font-weight: 600; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    .cards-grid { display: grid; gap: 12px; margin-bottom: 20px; }
+    .g4 { grid-template-columns: repeat(4, 1fr); }
+    .g2 { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 640px) { .g4 { grid-template-columns: repeat(2,1fr); } .g2 { grid-template-columns: 1fr; } }
+
+    .input-card { background: #fff; border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+    .card-label { font-size: 12px; color: #888; margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+    .icon { width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; font-weight: 700; }
+    .count-row { display: flex; align-items: center; gap: 8px; }
+    .count-row input[type=number] { width: 90px; border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; font-size: 18px; font-weight: 600; text-align: center; outline: none; }
+    .count-row input[type=number]:focus { border-color: #e0535b; }
+    .count-row .unit { font-size: 13px; color: #999; }
+    .amount-row { display: flex; align-items: center; gap: 6px; }
+    .amount-row .yen { font-size: 16px; color: #999; }
+    .amount-row input[type=number] { width: 140px; border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; font-size: 18px; font-weight: 600; outline: none; }
+    .amount-row input[type=number]:focus { border-color: #e0535b; }
+
+    .growth-badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px; margin-top: 8px; }
+    .g-pos  { background: #e6f9ee; color: #22c55e; }
+    .g-neg  { background: #fff0f0; color: #ef4444; }
+    .g-zero { background: #f0f0f0; color: #888; }
+
+    .section-label { font-size: 13px; font-weight: 600; color: #555; padding-bottom: 8px; border-bottom: 1px solid #e8e8e8; margin-bottom: 14px; }
+    .mt { margin-top: 28px; }
+
+    .chart-card { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 14px; }
+    .chart-card h3 { font-size: 13px; font-weight: 600; color: #666; margin-bottom: 14px; }
+    .chart-wrap { position: relative; height: 200px; }
+
+    .history-card { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 14px; }
+    .history-card h3 { font-size: 13px; font-weight: 600; color: #666; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f7f7f7; padding: 9px 12px; text-align: center; font-weight: 600; color: #555; border-bottom: 1px solid #eee; white-space: nowrap; }
+    td { padding: 9px 12px; text-align: center; border-bottom: 1px solid #f2f2f2; }
+    tr:last-child td { border-bottom: none; }
+    td:first-child, th:first-child { text-align: left; }
+    .hi { font-weight: 600; color: #e0535b; }
+
+    .mtg-wrap { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 14px; }
+    .mtg-date-input { border: 1px solid #ddd; border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; font-family: inherit; margin-bottom: 12px; display: block; }
+    .mtg-date-input:focus { border-color: #e0535b; }
+    .mtg-textarea { width: 100%; border: 1px solid #ddd; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.75; min-height: 200px; resize: vertical; outline: none; font-family: inherit; }
+    .mtg-textarea:focus { border-color: #e0535b; }
+    .mtg-item { padding: 14px 0; border-bottom: 1px solid #f2f2f2; }
+    .mtg-item:last-child { border-bottom: none; }
+    .mtg-month { font-size: 13px; font-weight: 600; color: #999; margin-bottom: 6px; }
+    .mtg-content-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+
+    /* AI Chat tab */
+    .ai-start-area { background: linear-gradient(135deg, #1e1e2e, #2d1b4e); border-radius: 14px; padding: 28px 24px; margin-bottom: 16px; text-align: center; }
+    .ai-title { color: #e2b8ff; font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .ai-sub  { color: #9a87b8; font-size: 13px; margin-bottom: 22px; line-height: 1.7; }
+    .btn-ai  { background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; border: none; padding: 12px 28px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600; }
+    .btn-ai:hover { background: linear-gradient(135deg, #6d28d9, #9333ea); }
+    .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-loading { display: none; align-items: center; gap: 10px; justify-content: center; color: #c4b5fd; font-size: 14px; margin-top: 14px; }
+    .ai-loading.show { display: flex; }
+    .spinner { width: 20px; height: 20px; border: 2px solid rgba(196,181,253,0.3); border-top-color: #c4b5fd; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Chat UI */
+    .chat-wrap { background: #fff; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 14px; }
+    .chat-top-bar { padding: 12px 18px; background: linear-gradient(135deg,#1e1e2e,#2d1b4e); display: flex; justify-content: space-between; align-items: center; }
+    .chat-top-bar .session-label { font-size: 12px; color: #c4b5fd; }
+    .btn-new-session { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: #e2b8ff; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .btn-new-session:hover { background: rgba(255,255,255,0.25); }
+    .chat-messages { padding: 16px; min-height: 200px; max-height: 520px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+    .chat-msg { display: flex; gap: 10px; align-items: flex-start; }
+    .chat-msg.user { flex-direction: row-reverse; }
+    .chat-avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; margin-top: 2px; }
+    .chat-msg.user .chat-avatar { background: #e0535b; color: #fff; }
+    .chat-msg.assistant .chat-avatar { background: linear-gradient(135deg,#7c3aed,#a855f7); color: #fff; }
+    .chat-bubble { max-width: 82%; padding: 12px 16px; border-radius: 14px; font-size: 14px; line-height: 1.75; }
+    .chat-msg.user .chat-bubble { background: #e0535b; color: #fff; border-radius: 14px 14px 4px 14px; }
+    .chat-msg.assistant .chat-bubble { background: #f4f4f8; color: #222; border-radius: 14px 14px 14px 4px; }
+    .chat-bubble h2 { font-size: 15px; font-weight: 700; margin: 16px 0 6px; padding-bottom: 5px; border-bottom: 2px solid #7c3aed; color: #1e1e1e; }
+    .chat-bubble h2:first-child { margin-top: 0; }
+    .chat-bubble h3 { font-size: 13px; font-weight: 700; color: #444; margin: 12px 0 5px; }
+    .chat-bubble p { margin-bottom: 8px; }
+    .chat-bubble ul, .chat-bubble ol { padding-left: 18px; margin-bottom: 8px; }
+    .chat-bubble li { margin-bottom: 3px; }
+    .chat-bubble strong { font-weight: 700; color: #1e1e1e; }
+    .chat-bubble .bm-good { color: #22c55e; font-weight: 700; }
+    .chat-bubble .bm-low  { color: #ef4444; font-weight: 700; }
+    .chat-bubble .bm-ok   { color: #f59e0b; font-weight: 700; }
+    .chat-input-row { display: flex; gap: 10px; align-items: flex-end; padding: 12px 16px; border-top: 1px solid #f0f0f0; background: #fafafa; }
+    .chat-input-row textarea { flex: 1; border: 1px solid #ddd; border-radius: 10px; padding: 10px 14px; font-size: 14px; line-height: 1.5; resize: none; outline: none; font-family: inherit; min-height: 42px; max-height: 120px; background: #fff; }
+    .chat-input-row textarea:focus { border-color: #7c3aed; }
+    .btn-send { background: linear-gradient(135deg,#7c3aed,#a855f7); color: #fff; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+    .btn-send:disabled { opacity: 0.45; cursor: not-allowed; }
+    .chat-typing { display: flex; align-items: center; gap: 5px; padding: 10px 14px; }
+    .chat-typing span { width: 7px; height: 7px; background: #a78bfa; border-radius: 50%; animation: bounce 1.2s infinite; }
+    .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+    .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+    /* Past sessions */
+    .session-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid #f2f2f2; cursor: pointer; gap: 10px; }
+    .session-item:last-child { border-bottom: none; }
+    .session-item:hover .session-title { color: #7c3aed; }
+    .session-title { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 3px; }
+    .session-preview { font-size: 12px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+    .btn-del-session { background: none; border: none; color: #ddd; cursor: pointer; font-size: 15px; padding: 4px; flex-shrink: 0; }
+    .btn-del-session:hover { color: #ff4d4f; }
+
+    .no-api-warning { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #92400e; margin-bottom: 16px; }
+    .no-api-warning a { color: #b45309; cursor: pointer; text-decoration: underline; }
+    .btn-import { background: linear-gradient(135deg,#1d4ed8,#3b82f6); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+    .btn-import:hover { background: linear-gradient(135deg,#1e40af,#2563eb); }
+    .import-preview-item { padding: 8px 10px; background: #f8f8f8; border-radius: 8px; margin-bottom: 6px; }
+    .import-preview-item .imp-month { font-size: 12px; font-weight: 700; color: #7c3aed; margin-bottom: 4px; }
+    .import-preview-item .imp-content { font-size: 12px; color: #444; white-space: pre-wrap; }
+
+    /* Save bar */
+    .save-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #eee; padding: 12px 24px; display: flex; justify-content: flex-end; align-items: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.06); }
+    .saved-msg { font-size: 13px; color: #22c55e; margin-right: 12px; opacity: 0; transition: opacity 0.3s; }
+    .saved-msg.show { opacity: 1; }
+
+    /* Icon colors */
+    .c-story { background: #f09433; color: #fff; }
+    .c-reel  { background: #c13584; color: #fff; }
+    .c-feed  { background: #833ab4; color: #fff; }
+    .c-tt    { background: #111;    color: #fff; }
+    .c-ig    { background: linear-gradient(135deg,#f09433,#c13584); color: #fff; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>美容師塾 塾生管理</h1>
+  <div class="header-right">
+    <button class="back-btn" id="backBtn" style="display:none" onclick="showList()">← 一覧へ</button>
+    <button class="settings-btn" onclick="openSettings()">⚙ 設定</button>
+  </div>
+</header>
+
+<!-- List Page -->
+<div id="pageList" class="page active">
+  <div class="list-container">
+    <div class="list-header">
+      <h2>塾生一覧</h2>
+      <button class="btn-primary" onclick="openAddModal()">＋ 塾生を追加</button>
+    </div>
+    <div id="studentList"></div>
+  </div>
+</div>
+
+<!-- Detail Page -->
+<div id="pageDetail" class="page">
+  <div class="detail-container">
+
+    <div class="detail-header-card">
+      <div>
+        <div class="name" id="detailName"></div>
+        <div class="contact" id="detailContact"></div>
+        <div class="sns-handles" id="detailHandles"></div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-edit" onclick="openEditModal()">編集</button>
+        <button class="btn-danger" onclick="confirmDelete()">削除</button>
+      </div>
+    </div>
+
+    <!-- 週次レポートバナー -->
+    <div id="weeklyReportBanner" style="display:none;background:linear-gradient(135deg,#1e1e2e,#2d1b4e);border-radius:12px;padding:14px 18px;margin-bottom:16px;align-items:center;gap:12px">
+      <span style="font-size:20px">📊</span>
+      <div style="flex:1;color:#e2b8ff">
+        <div style="font-size:13px;font-weight:700">週次AIレポートのタイミングです！</div>
+        <div style="font-size:12px;color:#9a87b8;margin-top:2px" id="weeklyDaysText"></div>
+      </div>
+      <button onclick="switchTab('ai');startChatSession()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">今すぐ分析</button>
+      <button onclick="document.getElementById('weeklyReportBanner').style.display='none'" style="background:none;border:none;color:#666;cursor:pointer;font-size:18px;padding:4px;flex-shrink:0">✕</button>
+    </div>
+
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)">◀</button>
+      <span class="month-label" id="monthLabel"></span>
+      <button onclick="changeMonth(1)">▶</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('sns')">SNS</button>
+      <button class="tab-btn" onclick="switchTab('sales')">売上・客数</button>
+      <button class="tab-btn" onclick="switchTab('mtg')">MTG</button>
+      <button class="tab-btn" onclick="switchTab('ai')">AIレポート</button>
+    </div>
+
+    <!-- SNS Tab -->
+    <div id="tabSns" class="tab-pane active">
+      <div class="section-label">投稿数</div>
+      <div class="cards-grid g4">
+        <div class="input-card">
+          <div class="card-label"><span class="icon c-story">S</span>IGストーリー</div>
+          <div class="count-row"><input type="number" id="inp-story" min="0" placeholder="0" oninput="markDirty()"><span class="unit">投稿</span></div>
+        </div>
+        <div class="input-card">
+          <div class="card-label"><span class="icon c-reel">R</span>IGリール</div>
+          <div class="count-row"><input type="number" id="inp-reel" min="0" placeholder="0" oninput="markDirty()"><span class="unit">投稿</span></div>
+        </div>
+        <div class="input-card">
+          <div class="card-label"><span class="icon c-feed">F</span>IGフィード</div>
+          <div class="count-row"><input type="number" id="inp-feed" min="0" placeholder="0" oninput="markDirty()"><span class="unit">投稿</span></div>
+        </div>
+        <div class="input-card">
+          <div class="card-label"><span class="icon c-tt">T</span>TikTok</div>
+          <div class="count-row"><input type="number" id="inp-tiktok" min="0" placeholder="0" oninput="markDirty()"><span class="unit">投稿</span></div>
+        </div>
+      </div>
+      <div class="section-label mt">フォロワー数</div>
+      <div class="cards-grid g2">
+        <div class="input-card">
+          <div class="card-label"><span class="icon c-ig">IG</span>Instagramフォロワー</div>
+          <div class="count-row"><input type="number" id="inp-igF" min="0" placeholder="0" oninput="markDirty()"><span class="unit">人</span></div>
+          <div id="ig-growth"></div>
+        </div>
+        <div class="input-card">
+          <div class="card-label"><span class="icon c-tt">TT</span>TikTokフォロワー</div>
+          <div class="count-row"><input type="number" id="inp-ttF" min="0" placeholder="0" oninput="markDirty()"><span class="unit">人</span></div>
+          <div id="tt-growth"></div>
+        </div>
+      </div>
+
+      <div id="igConnectSection" class="mt"></div>
+
+      <div class="chart-card mt">
+        <h3>フォロワー推移</h3>
+        <div class="chart-wrap"><canvas id="chartFollowers"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>月別投稿数</h3>
+        <div class="chart-wrap"><canvas id="chartPosts"></canvas></div>
+      </div>
+      <div class="history-card">
+        <h3>SNS履歴</h3>
+        <div id="snsHistory"></div>
+      </div>
+    </div>
+
+    <!-- Sales Tab -->
+    <div id="tabSales" class="tab-pane">
+      <div class="cards-grid g2">
+        <div class="input-card">
+          <div class="card-label">💴 月間売上</div>
+          <div class="amount-row"><span class="yen">¥</span><input type="number" id="inp-amount" min="0" placeholder="0" oninput="markDirty()"></div>
+        </div>
+        <div class="input-card">
+          <div class="card-label">👥 月間客数</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="count-row">
+              <span style="font-size:11px;color:#aaa;width:28px;flex-shrink:0">新規</span>
+              <input type="number" id="inp-newCust" min="0" placeholder="0" oninput="updateTotalCust()" style="width:80px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:17px;font-weight:600;text-align:center;outline:none">
+              <span class="unit">人</span>
+            </div>
+            <div class="count-row">
+              <span style="font-size:11px;color:#aaa;width:28px;flex-shrink:0">既存</span>
+              <input type="number" id="inp-exCust" min="0" placeholder="0" oninput="updateTotalCust()" style="width:80px;border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:17px;font-weight:600;text-align:center;outline:none">
+              <span class="unit">人</span>
+            </div>
+            <div style="padding-top:8px;border-top:1px solid #f0f0f0;font-size:13px;color:#555;display:flex;justify-content:space-between;align-items:center">
+              <span>総客数</span>
+              <span style="font-size:20px;font-weight:700;color:#e0535b" id="totalCustDisp">0</span>
+              <span style="font-size:13px;color:#999">人</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-card mt">
+        <h3>売上推移</h3>
+        <div class="chart-wrap"><canvas id="chartSales"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>客数推移</h3>
+        <div class="chart-wrap"><canvas id="chartCustomers"></canvas></div>
+      </div>
+      <div class="history-card">
+        <h3>売上・客数履歴</h3>
+        <div id="salesHistory"></div>
+      </div>
+    </div>
+
+    <!-- MTG Tab -->
+    <div id="tabMtg" class="tab-pane">
+      <!-- 一括インポートバナー -->
+      <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div style="font-size:13px;color:#1e40af;line-height:1.6">
+          📋 <strong>スプレッドシートから一括インポート</strong><br>
+          <span style="font-size:12px;color:#3b82f6">過去のMTG記録をコピペするとAIが月別に自動整理します</span>
+        </div>
+        <button class="btn-import" onclick="openImportModal()">AIで一括インポート</button>
+      </div>
+
+      <div class="mtg-wrap">
+        <label style="font-size:13px;color:#666;display:block;margin-bottom:6px">日付</label>
+        <input type="date" class="mtg-date-input" id="inp-mtgDate" oninput="markDirty()">
+        <label style="font-size:13px;color:#666;display:block;margin-bottom:6px">MTG内容</label>
+        <textarea class="mtg-textarea" id="inp-mtgContent" placeholder="ミーティングの内容・議題・決定事項などを入力..." oninput="markDirty()"></textarea>
+      </div>
+      <div class="history-card">
+        <h3>MTG履歴</h3>
+        <div id="mtgHistory"></div>
+      </div>
+    </div>
+
+    <!-- AI Chat Tab -->
+    <div id="tabAi" class="tab-pane">
+      <div id="aiNoKeyWarning" class="no-api-warning" style="display:none">
+        ⚠ APIキーが設定されていません。<a onclick="openSettings()">設定</a>からAnthropicのAPIキーを入力してください。
+      </div>
+
+      <!-- Start area -->
+      <div id="aiStartArea" class="ai-start-area">
+        <div class="ai-title">✦ AI壁打ち分析</div>
+        <div class="ai-sub">
+          AIがデータをベンチマークと比較・評価し<br>
+          質問を重ねながらこの人だけの戦略を一緒に考えます
+        </div>
+        <button class="btn-ai" id="btnStartSession" onclick="startChatSession()">分析セッションを開始する</button>
+        <div class="ai-loading" id="aiLoading"><div class="spinner"></div><span>AIが分析中...</span></div>
+      </div>
+
+      <!-- Active chat -->
+      <div id="aiChatArea" style="display:none" class="chat-wrap">
+        <div class="chat-top-bar">
+          <span class="session-label" id="chatSessionLabel"></span>
+          <button class="btn-new-session" onclick="startChatSession()">＋ 新しいセッション</button>
+        </div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input-row">
+          <textarea id="chatInput" placeholder="質問への回答・追加情報を入力…（Shift+Enterで改行）" rows="2" onkeydown="onChatKey(event)"></textarea>
+          <button class="btn-send" id="btnSend" onclick="sendMessage()">送信</button>
+        </div>
+      </div>
+
+      <!-- Past sessions -->
+      <div class="history-card" id="pastSessionsCard" style="display:none;margin-top:14px">
+        <h3>過去のセッション</h3>
+        <div id="pastSessionsList"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="save-bar" id="saveBar">
+    <span class="saved-msg" id="savedMsg">保存しました</span>
+    <button class="btn-primary" onclick="saveCurrentTab()">保存</button>
+  </div>
+</div>
+
+<!-- Student Modal -->
+<div class="modal-overlay" id="studentModal">
+  <div class="modal">
+    <h2 id="modalTitle">塾生を追加</h2>
+    <div class="form-section">基本情報</div>
+    <div class="form-group"><label>氏名 <span style="color:#e0535b">*</span></label><input type="text" id="inputName" placeholder="例：山田 花子"></div>
+    <div class="form-group"><label>電話番号</label><input type="text" id="inputPhone" placeholder="例：090-0000-0000"></div>
+    <div class="form-group"><label>メールアドレス</label><input type="email" id="inputEmail" placeholder="例：hanako@example.com"></div>
+    <div class="form-group"><label>メモ</label><input type="text" id="inputMemo" placeholder="例：入塾日、クラスなど"></div>
+    <div class="form-section">SNSアカウント</div>
+    <div class="form-group"><label>Instagram</label><input type="text" id="inputIg" placeholder="例：@hanako_hair"></div>
+    <div class="form-group"><label>TikTok</label><input type="text" id="inputTt" placeholder="例：@hanako_tiktok"></div>
+    <div class="form-section">AI分析プロフィール</div>
+    <div class="form-group"><label>サロン名</label><input type="text" id="inputSalon" placeholder="例：Hair Salon Bloom"></div>
+    <div class="form-group"><label>得意技術・専門スタイル</label><input type="text" id="inputSpecialty" placeholder="例：ハイライト、韓国風カット、メンズスタイル"></div>
+    <div class="form-group"><label>ターゲット客層</label><input type="text" id="inputTarget" placeholder="例：20〜30代女性、トレンド好き、学生"></div>
+    <div class="form-group"><label>SNS発信の方向性・強み</label><input type="text" id="inputStrength" placeholder="例：before/after動画が得意、施術過程を見せるスタイル"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('studentModal')">キャンセル</button>
+      <button class="btn-primary" onclick="saveStudent()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal" style="max-width:600px">
+    <h2>AIで一括インポート</h2>
+    <p style="font-size:13px;color:#888;margin:6px 0 16px;line-height:1.6">
+      スプレッドシートのMTG記録をそのままコピーして貼り付けてください。<br>
+      AIが日付を認識して月別に自動整理します。
+    </p>
+    <div class="form-group">
+      <label>スプレッドシートの内容を貼り付け</label>
+      <textarea id="importRaw" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:12px;font-size:13px;min-height:220px;resize:vertical;outline:none;font-family:inherit;line-height:1.6" placeholder="ここにスプレッドシートの内容をコピー＆ペーストしてください
+
+例：
+2025/1/10　山田　カットの仕上げが雑　次回は丁寧に
+2025/2/5　接客態度改善　笑顔を意識する
+..."></textarea>
+    </div>
+    <div id="importStatus" style="font-size:13px;margin-top:-8px;margin-bottom:10px;display:none"></div>
+    <div id="importPreview" style="display:none">
+      <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #eee">整理結果プレビュー（保存前に確認）</div>
+      <div id="importPreviewList" style="max-height:200px;overflow-y:auto;font-size:13px;"></div>
+    </div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn-secondary" onclick="closeModal('importModal')">キャンセル</button>
+      <button class="btn-primary" id="btnImportAi" onclick="runImportAi()" style="background:linear-gradient(135deg,#7c3aed,#a855f7)">AIで整理する</button>
+      <button class="btn-primary" id="btnImportSave" style="display:none" onclick="saveImportedMtg()">この内容で保存</button>
+    </div>
+    <div class="ai-loading" id="importLoading" style="justify-content:flex-start;margin-top:10px"><div class="spinner"></div><span style="color:#7c3aed">AIが整理中...</span></div>
+  </div>
+</div>
+
+<!-- Instagram Auth Modal -->
+<div class="modal-overlay" id="igAuthModal">
+  <div class="modal" style="max-width:520px">
+    <h2>📸 Instagram連携</h2>
+    <p style="font-size:13px;color:#888;line-height:1.7;margin:6px 0 18px">
+      Graph API Explorerからアクセストークンを取得して貼り付けます。
+    </p>
+
+    <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px">STEP 1 ― Graph API Explorerを開く</div>
+      <p style="font-size:13px;color:#3b82f6;margin-bottom:12px;line-height:1.6">下のボタンでGraph API Explorerを開いてください。</p>
+      <button onclick="window.open('https://developers.facebook.com/tools/explorer/','_blank')" style="background:#1d4ed8;color:#fff;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">
+        Graph API Explorerを開く ↗
+      </button>
+    </div>
+
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:16px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:8px">STEP 2 ― トークンを生成</div>
+      <ol style="font-size:13px;color:#555;line-height:2;padding-left:18px;margin:0">
+        <li>右上のドロップダウンで自分のアプリを選択</li>
+        <li>「アクセストークンを生成」をクリック</li>
+        <li>許可を求められたら「許可」</li>
+        <li>表示されたトークンをコピー</li>
+      </ol>
+    </div>
+
+    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:16px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:#7c3aed;margin-bottom:8px">STEP 3 ― トークンを貼り付け</div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>アクセストークン</label>
+        <input type="text" id="igRedirectUrl" placeholder="EAAxxxxxxxxxxxxx..." style="font-size:13px">
+      </div>
+    </div>
+
+    <div id="igAuthStatus" style="font-size:13px;padding:8px 12px;border-radius:8px;margin-bottom:10px;display:none"></div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('igAuthModal')">キャンセル</button>
+      <button class="btn-primary" onclick="connectIgDirect()">連携する</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>設定</h2>
+    <div class="form-section">Anthropic APIキー</div>
+    <div class="form-group">
+      <label>APIキー</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="password" id="inputApiKey" placeholder="sk-ant-api03-..." style="flex:1">
+        <button type="button" onclick="toggleApiKeyVisibility()" style="background:#f0f0f0;border:1px solid #ddd;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:13px;white-space:nowrap" id="btnToggleKey">表示</button>
+      </div>
+    </div>
+    <div id="apiKeyStatus" style="font-size:12px;margin-top:-6px;margin-bottom:10px;display:none"></div>
+    <p style="font-size:12px;color:#aaa;line-height:1.7;background:#f8f8f8;padding:10px 12px;border-radius:8px">
+      ① <a href="https://console.anthropic.com" target="_blank" style="color:#6366f1">console.anthropic.com</a> にログイン<br>
+      ② 左メニュー「API Keys」→「Create Key」<br>
+      ③ 発行されたキー（<code>sk-ant-...</code>）をコピーして上に貼り付け
+    </p>
+    <div class="form-section" style="margin-top:20px">Instagram API連携</div>
+    <div class="form-group">
+      <label>Instagram App ID</label>
+      <input type="text" id="inputIgAppId" placeholder="例：1234567890123456">
+    </div>
+    <div class="form-group">
+      <label>Instagram App Secret <span style="font-size:11px;color:#aaa">（長期トークン取得に必要）</span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="password" id="inputIgSecret" placeholder="App Secretを入力" style="flex:1">
+        <button type="button" onclick="toggleSecretVisibility()" style="background:#f0f0f0;border:1px solid #ddd;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:13px" id="btnToggleSecret">表示</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#aaa;line-height:1.7;background:#f8f8f8;padding:10px 12px;border-radius:8px">
+      Meta Developer → 設定 → ベーシック で確認できます。<br>
+      App Secretを入力すると<strong>60日間有効</strong>な長期トークンに自動変換されます。
+    </p>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn-secondary" onclick="closeModal('settingsModal')">キャンセル</button>
+      <button class="btn-primary" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Storage
+// ============================================================
+const DB_KEY = 'beautySchool';
+function load()         { return JSON.parse(localStorage.getItem(DB_KEY) || '{"students":[]}'); }
+function persist(data)  { localStorage.setItem(DB_KEY, JSON.stringify(data)); }
+function getApiKey()    { return localStorage.getItem('anthropicApiKey') || ''; }
+function saveApiKey(k)  { localStorage.setItem('anthropicApiKey', k); }
+function getIgAppId()    { return localStorage.getItem('igAppId') || ''; }
+function saveIgAppId(v)  { localStorage.setItem('igAppId', v); }
+function getIgSecret()   { return localStorage.getItem('igSecret') || ''; }
+function saveIgSecret(v) { localStorage.setItem('igSecret', v); }
+
+// ============================================================
+// State
+// ============================================================
+let currentId    = null;
+let currentYear  = new Date().getFullYear();
+let currentMonth = new Date().getMonth() + 1;
+let currentTab   = 'sns';
+let isDirty      = false;
+let editingId    = null;
+let charts       = {};
+
+function mKey(y, m)    { return `${y}-${String(m).padStart(2,'0')}`; }
+function prevKey(y, m) { return m === 1 ? mKey(y-1, 12) : mKey(y, m-1); }
+
+// ============================================================
+// List page
+// ============================================================
+function showList() {
+  document.getElementById('pageList').classList.add('active');
+  document.getElementById('pageDetail').classList.remove('active');
+  document.getElementById('backBtn').style.display = 'none';
+  renderList();
+}
+
+function renderList() {
+  const { students } = load();
+  const el = document.getElementById('studentList');
+  if (!students.length) {
+    el.innerHTML = `<div class="empty-state"><p>まだ塾生が登録されていません</p><button class="btn-primary" onclick="openAddModal()">＋ 最初の塾生を追加</button></div>`;
+    return;
+  }
+  el.innerHTML = students.map(s => `
+    <div class="student-card" onclick="showDetail('${s.id}')">
+      <div class="info"><h3>${esc(s.name)}</h3><p>${[s.phone,s.email,s.memo].filter(Boolean).map(esc).join('　')}</p></div>
+      <span class="arrow">›</span>
+    </div>`).join('');
+}
+
+// ============================================================
+// Detail page
+// ============================================================
+function showDetail(id) {
+  currentId = id;
+  currentTab = 'sns';
+  const s = load().students.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('pageList').classList.remove('active');
+  document.getElementById('pageDetail').classList.add('active');
+  document.getElementById('backBtn').style.display = '';
+  document.getElementById('detailName').textContent = s.name;
+  document.getElementById('detailContact').textContent = [s.phone,s.email,s.memo].filter(Boolean).join('　');
+  const handles = [];
+  if (s.salon)     handles.push(`<span class="sns-handle">🏠 ${esc(s.salon)}</span>`);
+  if (s.igAccount) handles.push(`<span class="sns-handle"><strong>IG</strong> ${esc(s.igAccount)}</span>`);
+  if (s.ttAccount) handles.push(`<span class="sns-handle"><strong>TT</strong> ${esc(s.ttAccount)}</span>`);
+  if (s.specialty) handles.push(`<span class="sns-handle">✂ ${esc(s.specialty)}</span>`);
+  if (s.target)    handles.push(`<span class="sns-handle">🎯 ${esc(s.target)}</span>`);
+  document.getElementById('detailHandles').innerHTML = handles.join('');
+  isDirty = false;
+  updateMonthLabel();
+  activateTab('sns');
+  loadCurrentTab();
+  checkWeeklyReport(s);
+}
+
+function switchTab(tab) {
+  if (isDirty) saveCurrentTab(true);
+  activateTab(tab);
+  isDirty = false;
+  loadCurrentTab();
+}
+
+function activateTab(tab) {
+  currentTab = tab;
+  const TABS = ['sns','sales','mtg','ai'];
+  TABS.forEach(t => {
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+  });
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.toggle('active', TABS[i] === tab));
+  // Hide save bar on AI tab
+  document.getElementById('saveBar').style.display = tab === 'ai' ? 'none' : '';
+}
+
+function changeMonth(delta) {
+  if (isDirty) saveCurrentTab(true);
+  currentMonth += delta;
+  if (currentMonth > 12) { currentMonth = 1; currentYear++; }
+  if (currentMonth < 1)  { currentMonth = 12; currentYear--; }
+  updateMonthLabel();
+  isDirty = false;
+  loadCurrentTab();
+}
+
+function updateMonthLabel() {
+  document.getElementById('monthLabel').textContent = `${currentYear}年 ${currentMonth}月`;
+}
+
+function markDirty() { isDirty = true; }
+
+function loadCurrentTab() {
+  destroyCharts();
+  if (currentTab === 'sns')   loadSns();
+  if (currentTab === 'sales') loadSales();
+  if (currentTab === 'mtg')   loadMtg();
+  if (currentTab === 'ai')    loadAi();
+}
+
+// ============================================================
+// SNS Tab
+// ============================================================
+function loadSns() {
+  const s    = load().students.find(x => x.id === currentId);
+  const key  = mKey(currentYear, currentMonth);
+  const pkey = prevKey(currentYear, currentMonth);
+  const cur  = s?.sns?.[key];
+  const prev = s?.sns?.[pkey] || {};
+  const c    = cur || prev; // 前月繰り越し
+  set('inp-story', c.story  ?? ''); set('inp-reel',  c.reel   ?? '');
+  set('inp-feed',  c.feed   ?? ''); set('inp-tiktok',c.tiktok ?? '');
+  set('inp-igF',   c.igF    ?? ''); set('inp-ttF',   c.ttF    ?? '');
+  showGrowth('ig-growth', c.igF, prev.igF);
+  showGrowth('tt-growth', c.ttF, prev.ttF);
+  isDirty = false;
+  renderIgConnect(s);
+  renderSnsHistory(s);
+  setTimeout(() => { drawFollowers(s); drawPosts(s); }, 0);
+}
+
+function showGrowth(elId, cur, prev) {
+  const el = document.getElementById(elId);
+  if (cur == null || cur === '' || prev == null || prev === '') { el.innerHTML = ''; return; }
+  const diff = cur - prev, sign = diff >= 0 ? '+' : '';
+  const pct  = prev > 0 ? ` (${sign}${((diff/prev)*100).toFixed(1)}%)` : '';
+  const cls  = diff > 0 ? 'g-pos' : diff < 0 ? 'g-neg' : 'g-zero';
+  el.innerHTML = `<span class="growth-badge ${cls}">前月比 ${sign}${diff.toLocaleString()}人${pct}</span>`;
+}
+
+function saveSns() {
+  const data = load(), s = data.students.find(x => x.id === currentId);
+  if (!s) return;
+  if (!s.sns) s.sns = {};
+  s.sns[mKey(currentYear,currentMonth)] = {
+    story: int('inp-story'), reel: int('inp-reel'), feed: int('inp-feed'), tiktok: int('inp-tiktok'),
+    igF: int('inp-igF'), ttF: int('inp-ttF'),
+  };
+  persist(data);
+}
+
+function renderSnsHistory(s) {
+  const el = document.getElementById('snsHistory');
+  if (!s?.sns || !Object.keys(s.sns).length) { el.innerHTML = noData(); return; }
+  const rows = Object.keys(s.sns).sort().reverse().map(k => {
+    const c = s.sns[k], total = (c.story||0)+(c.reel||0)+(c.feed||0)+(c.tiktok||0);
+    const [y,m] = k.split('-');
+    return `<tr><td>${y}年${+m}月</td><td>${c.story||0}</td><td>${c.reel||0}</td><td>${c.feed||0}</td><td>${c.tiktok||0}</td><td class="hi">${total}</td><td>${num(c.igF)}</td><td>${num(c.ttF)}</td></tr>`;
+  }).join('');
+  el.innerHTML = `<table><thead><tr><th>月</th><th>ストーリー</th><th>リール</th><th>フィード</th><th>TikTok</th><th>投稿計</th><th>IGフォロワー</th><th>TTフォロワー</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function drawFollowers(s) {
+  if (!s?.sns) return;
+  const keys = Object.keys(s.sns).sort().slice(-12);
+  if (!keys.length) return;
+  const ctx = document.getElementById('chartFollowers').getContext('2d');
+  charts.followers = new Chart(ctx, {
+    type: 'line',
+    data: { labels: keys.map(monthLabel), datasets: [
+      { label: 'Instagram', data: keys.map(k=>s.sns[k].igF||0), borderColor: '#c13584', backgroundColor: 'rgba(193,53,132,0.08)', tension: 0.35, fill: true, pointRadius: 4 },
+      { label: 'TikTok',    data: keys.map(k=>s.sns[k].ttF||0), borderColor: '#555',    backgroundColor: 'rgba(0,0,0,0.04)',       tension: 0.35, fill: true, pointRadius: 4 },
+    ]},
+    options: chartOpts('人')
+  });
+}
+
+function drawPosts(s) {
+  if (!s?.sns) return;
+  const keys = Object.keys(s.sns).sort().slice(-12);
+  if (!keys.length) return;
+  const ctx = document.getElementById('chartPosts').getContext('2d');
+  charts.posts = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: keys.map(monthLabel), datasets: [
+      { label: 'ストーリー', data: keys.map(k=>s.sns[k].story||0),  backgroundColor: '#f09433' },
+      { label: 'リール',     data: keys.map(k=>s.sns[k].reel||0),   backgroundColor: '#c13584' },
+      { label: 'フィード',   data: keys.map(k=>s.sns[k].feed||0),   backgroundColor: '#833ab4' },
+      { label: 'TikTok',     data: keys.map(k=>s.sns[k].tiktok||0), backgroundColor: '#555' },
+    ]},
+    options: chartOpts('投稿')
+  });
+}
+
+// ============================================================
+// Sales Tab
+// ============================================================
+function loadSales() {
+  const s    = load().students.find(x => x.id === currentId);
+  const key  = mKey(currentYear, currentMonth);
+  const pkey = prevKey(currentYear, currentMonth);
+  const cur  = s?.sales?.[key];
+  const prev = s?.sales?.[pkey] || {};
+  const c    = cur || prev; // 前月繰り越し
+  set('inp-amount',  c.amount      ?? '');
+  set('inp-newCust', c.newCustomers  ?? (c.customers ?? ''));
+  set('inp-exCust',  c.existingCustomers ?? '');
+  updateTotalCust();
+  isDirty = false;
+  renderSalesHistory(s);
+  setTimeout(() => { drawSales(s); drawCustomers(s); }, 0);
+}
+
+function updateTotalCust() {
+  const n = parseInt(document.getElementById('inp-newCust').value) || 0;
+  const e = parseInt(document.getElementById('inp-exCust').value)  || 0;
+  document.getElementById('totalCustDisp').textContent = (n + e).toLocaleString();
+  markDirty();
+}
+
+function saveSales() {
+  const data = load(), s = data.students.find(x => x.id === currentId);
+  if (!s) return;
+  if (!s.sales) s.sales = {};
+  const newC = int('inp-newCust'), exC = int('inp-exCust');
+  s.sales[mKey(currentYear,currentMonth)] = {
+    amount: int('inp-amount'),
+    newCustomers: newC,
+    existingCustomers: exC,
+    customers: newC + exC,
+  };
+  persist(data);
+}
+
+function renderSalesHistory(s) {
+  const el = document.getElementById('salesHistory');
+  if (!s?.sales || !Object.keys(s.sales).length) { el.innerHTML = noData(); return; }
+  const rows = Object.keys(s.sales).sort().reverse().map(k => {
+    const c = s.sales[k];
+    const total = c.customers || (c.newCustomers||0) + (c.existingCustomers||0);
+    const newC  = c.newCustomers      != null ? c.newCustomers      : '-';
+    const exC   = c.existingCustomers != null ? c.existingCustomers : '-';
+    const unit  = total > 0 ? Math.round(c.amount / total) : 0;
+    const [y,m] = k.split('-');
+    return `<tr>
+      <td>${y}年${+m}月</td>
+      <td>¥${num(c.amount)}</td>
+      <td style="color:#6366f1;font-weight:600">${newC === '-' ? '-' : num(newC)}人</td>
+      <td>${exC === '-' ? '-' : num(exC)}人</td>
+      <td class="hi">${num(total)}人</td>
+      <td>${unit > 0 ? '¥'+num(unit) : '-'}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table><thead><tr>
+    <th>月</th><th>売上</th><th>新規</th><th>既存</th><th>総客数</th><th>客単価</th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function drawSales(s) {
+  if (!s?.sales) return;
+  const keys = Object.keys(s.sales).sort().slice(-12);
+  if (!keys.length) return;
+  charts.sales = new Chart(document.getElementById('chartSales').getContext('2d'), {
+    type: 'bar',
+    data: { labels: keys.map(monthLabel), datasets: [{ label: '売上', data: keys.map(k=>s.sales[k].amount||0), backgroundColor: 'rgba(224,83,91,0.7)', borderColor: '#e0535b', borderWidth: 1 }]},
+    options: chartOpts('¥', true)
+  });
+}
+
+function drawCustomers(s) {
+  if (!s?.sales) return;
+  const keys = Object.keys(s.sales).sort().slice(-12);
+  if (!keys.length) return;
+  const hasNewEx = keys.some(k => s.sales[k].newCustomers != null);
+  charts.customers = new Chart(document.getElementById('chartCustomers').getContext('2d'), {
+    type: 'bar',
+    data: { labels: keys.map(monthLabel), datasets: hasNewEx ? [
+      { label: '新規', data: keys.map(k => s.sales[k].newCustomers||0), backgroundColor: 'rgba(99,102,241,0.8)', stack: 'c' },
+      { label: '既存', data: keys.map(k => s.sales[k].existingCustomers||0), backgroundColor: 'rgba(167,139,250,0.6)', stack: 'c' },
+    ] : [
+      { label: '客数', data: keys.map(k => s.sales[k].customers||0), backgroundColor: 'rgba(99,102,241,0.7)', borderColor: '#6366f1', borderWidth: 1 },
+    ]},
+    options: { ...chartOpts('人'), scales: { x: { stacked: true, ticks:{font:{size:10}}, grid:{display:false} }, y: { stacked: true, beginAtZero:true, ticks:{font:{size:10}, callback: v=>v+'人'} } } }
+  });
+}
+
+// ============================================================
+// MTG Tab
+// ============================================================
+function loadMtg() {
+  const s = load().students.find(x => x.id === currentId);
+  const c = s?.mtg?.[mKey(currentYear,currentMonth)] || {};
+  set('inp-mtgDate', c.date || ''); set('inp-mtgContent', c.content || '');
+  isDirty = false;
+  renderMtgHistory(s);
+}
+
+function saveMtg() {
+  const data = load(), s = data.students.find(x => x.id === currentId);
+  if (!s) return;
+  if (!s.mtg) s.mtg = {};
+  s.mtg[mKey(currentYear,currentMonth)] = {
+    date: document.getElementById('inp-mtgDate').value,
+    content: document.getElementById('inp-mtgContent').value,
+  };
+  persist(data);
+}
+
+function renderMtgHistory(s) {
+  const el = document.getElementById('mtgHistory');
+  if (!s?.mtg || !Object.keys(s.mtg).length) { el.innerHTML = noData(); return; }
+  const items = Object.keys(s.mtg).sort().reverse().map(k => {
+    const c = s.mtg[k]; if (!c.content && !c.date) return '';
+    const [y,m] = k.split('-');
+    const dateStr = c.date ? `　<span style="color:#aaa;font-weight:normal">${c.date}</span>` : '';
+    return `<div class="mtg-item"><div class="mtg-month">${y}年${+m}月${dateStr}</div><div class="mtg-content-text">${esc(c.content||'')}</div></div>`;
+  }).filter(Boolean).join('');
+  el.innerHTML = items || noData();
+}
+
+// ============================================================
+// MTG Import
+// ============================================================
+let importedMtgData = null;
+
+function openImportModal() {
+  if (!getApiKey()) { openSettings(); return; }
+  document.getElementById('importRaw').value = '';
+  document.getElementById('importStatus').style.display = 'none';
+  document.getElementById('importPreview').style.display = 'none';
+  document.getElementById('btnImportSave').style.display = 'none';
+  document.getElementById('btnImportAi').style.display = '';
+  document.getElementById('importLoading').classList.remove('show');
+  importedMtgData = null;
+  document.getElementById('importModal').classList.add('open');
+  setTimeout(() => document.getElementById('importRaw').focus(), 50);
+}
+
+async function runImportAi() {
+  const raw = document.getElementById('importRaw').value.trim();
+  if (!raw) { alert('内容を貼り付けてください'); return; }
+
+  const s = load().students.find(x => x.id === currentId);
+  const statusEl  = document.getElementById('importStatus');
+  const previewEl = document.getElementById('importPreview');
+  const loadingEl = document.getElementById('importLoading');
+
+  document.getElementById('btnImportAi').disabled = true;
+  loadingEl.classList.add('show');
+  statusEl.style.display = 'none';
+  previewEl.style.display = 'none';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': getApiKey(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: buildImportPrompt(s, raw) }]
+      })
+    });
+
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || res.status); }
+    const text = (await res.json()).content[0].text;
+
+    // Extract JSON from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('AIの返答からデータを取得できませんでした');
+
+    importedMtgData = JSON.parse(jsonMatch[0]);
+    if (!importedMtgData.length) throw new Error('整理できるデータが見つかりませんでした');
+
+    // Show preview
+    document.getElementById('importPreviewList').innerHTML = importedMtgData.map(item => `
+      <div class="import-preview-item">
+        <div class="imp-month">${monthLabel(item.month)}${item.date ? '　' + item.date : ''}</div>
+        <div class="imp-content">${esc(item.content)}</div>
+      </div>`).join('');
+    previewEl.style.display = '';
+    document.getElementById('btnImportSave').style.display = '';
+    document.getElementById('btnImportAi').style.display = 'none';
+
+    statusEl.style.display = '';
+    statusEl.style.color = '#22c55e';
+    statusEl.textContent = `✓ ${importedMtgData.length}件のMTG記録に整理しました。内容を確認して「保存」してください。`;
+
+  } catch (e) {
+    statusEl.style.display = '';
+    statusEl.style.color = '#ef4444';
+    statusEl.textContent = '❌ エラー: ' + e.message;
+  } finally {
+    document.getElementById('btnImportAi').disabled = false;
+    loadingEl.classList.remove('show');
+  }
+}
+
+function saveImportedMtg() {
+  if (!importedMtgData?.length) return;
+  const data = load();
+  const s = data.students.find(x => x.id === currentId);
+  if (!s) return;
+  if (!s.mtg) s.mtg = {};
+  importedMtgData.forEach(item => {
+    const key = item.month;
+    if (s.mtg[key]) {
+      // 既存のデータに追記
+      s.mtg[key].content = s.mtg[key].content
+        ? s.mtg[key].content + '\n\n---\n' + item.content
+        : item.content;
+    } else {
+      s.mtg[key] = { date: item.date || '', content: item.content };
+    }
+  });
+  persist(data);
+  closeModal('importModal');
+  loadMtg();
+  const msg = document.getElementById('savedMsg');
+  msg.classList.add('show');
+  setTimeout(() => msg.classList.remove('show'), 2000);
+}
+
+function buildImportPrompt(s, raw) {
+  const today = new Date();
+  return `あなたはデータ整理の専門家です。
+以下は美容師塾の塾生「${s.name}」のMTG記録をスプレッドシートからコピーしたものです。
+現在の年月は${today.getFullYear()}年${today.getMonth()+1}月です。
+
+【貼り付けられたデータ】
+${raw}
+
+【指示】
+このデータを月別のMTG記録として整理してください。
+- 日付が書いてある場合はその日付から月を判定する
+- 年が書いていない場合は文脈から判断する（直近の年を優先）
+- 同じ月の内容は1つにまとめて整理する
+- 内容は読みやすく箇条書きや段落で整理する（元の情報は漏らさない）
+- 氏名・塾生名が含まれていても除外してOK
+
+【出力形式】
+必ずJSON配列のみを出力してください。余計な説明は不要です。
+
+[
+  {
+    "month": "YYYY-MM",
+    "date": "YYYY-MM-DD",
+    "content": "整理されたMTG内容"
+  }
+]`;
+}
+
+// ============================================================
+// AI Chat Tab
+// ============================================================
+let currentSessionId = null;
+let aiBusy = false;
+
+function loadAi() {
+  const hasKey = !!getApiKey();
+  document.getElementById('aiNoKeyWarning').style.display = hasKey ? 'none' : '';
+  document.getElementById('btnStartSession').disabled = !hasKey;
+
+  const s = load().students.find(x => x.id === currentId);
+  const sessions = s?.chatSessions || [];
+
+  // If there's an active session for this student, resume it
+  if (currentSessionId) {
+    const session = sessions.find(x => x.id === currentSessionId);
+    if (session) { showChat(session); return; }
+  }
+  document.getElementById('aiStartArea').style.display = '';
+  document.getElementById('aiChatArea').style.display = 'none';
+  renderPastSessions(sessions);
+}
+
+async function startChatSession() {
+  if (!getApiKey()) { openSettings(); return; }
+  const s = load().students.find(x => x.id === currentId);
+  if (!s) return;
+
+  const session = { id: 'cs_' + Date.now(), month: mKey(currentYear, currentMonth), date: new Date().toLocaleDateString('ja-JP'), messages: [] };
+  const data = load();
+  const student = data.students.find(x => x.id === currentId);
+  if (!student.chatSessions) student.chatSessions = [];
+  student.chatSessions.unshift(session);
+  persist(data);
+
+  currentSessionId = session.id;
+  showChat(session);
+  await callAI(session);
+}
+
+function showChat(session) {
+  document.getElementById('aiStartArea').style.display = 'none';
+  document.getElementById('aiChatArea').style.display = '';
+  document.getElementById('chatSessionLabel').textContent = `${session.date} のセッション（${session.month}）`;
+  renderMessages(session);
+  const s = load().students.find(x => x.id === currentId);
+  renderPastSessions(s?.chatSessions || [], session.id);
+}
+
+function renderMessages(session) {
+  const el = document.getElementById('chatMessages');
+  // Hide the hidden trigger message (index 0 user msg starting with '分析を開始')
+  const msgs = session.messages.filter((m, i) => !(i === 0 && m.role === 'user' && m.content.startsWith('分析を開始')));
+  el.innerHTML = msgs.map(m => {
+    const isUser = m.role === 'user';
+    const body = isUser ? `<p>${esc(m.content)}</p>` : mdToHtml(m.content);
+    return `<div class="chat-msg ${isUser ? 'user' : 'assistant'}">
+      <div class="chat-avatar">${isUser ? '👤' : '✦'}</div>
+      <div class="chat-bubble">${body}</div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function showTyping() {
+  const el = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg assistant'; div.id = 'typingIndicator';
+  div.innerHTML = `<div class="chat-avatar">✦</div><div class="chat-bubble"><div class="chat-typing"><span></span><span></span><span></span></div></div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+function hideTyping() { document.getElementById('typingIndicator')?.remove(); }
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || aiBusy) return;
+  input.value = '';
+
+  const data = load();
+  const s = data.students.find(x => x.id === currentId);
+  const session = s?.chatSessions?.find(x => x.id === currentSessionId);
+  if (!session) return;
+
+  session.messages.push({ role: 'user', content: text });
+  persist(data);
+
+  const updated = load().students.find(x => x.id === currentId)?.chatSessions?.find(x => x.id === currentSessionId);
+  renderMessages(updated);
+  await callAI(updated);
+}
+
+function onChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+async function callAI(session) {
+  aiBusy = true;
+  document.getElementById('btnSend').disabled = true;
+  document.getElementById('btnStartSession').disabled = true;
+  document.getElementById('aiLoading').classList.add('show');
+  showTyping();
+
+  try {
+    const s = load().students.find(x => x.id === currentId);
+    const messages = session.messages.length === 0
+      ? [{ role: 'user', content: '分析を開始してください。' }]
+      : [...session.messages];
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': getApiKey(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4096, system: buildSystem(s), messages })
+    });
+
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || `${res.status}`); }
+    const aiText = (await res.json()).content[0].text;
+
+    const data = load();
+    const student = data.students.find(x => x.id === currentId);
+    const sess = student.chatSessions.find(x => x.id === session.id);
+    if (sess.messages.length === 0) sess.messages.push({ role: 'user', content: '分析を開始してください。' });
+    sess.messages.push({ role: 'assistant', content: aiText });
+    persist(data);
+
+    hideTyping();
+    const final = load().students.find(x => x.id === currentId)?.chatSessions?.find(x => x.id === session.id);
+    renderMessages(final);
+
+  } catch (e) {
+    hideTyping();
+    const msg = e.message || '';
+    if (msg.includes('invalid') || msg.includes('401')) alert('❌ APIキーが無効です。設定で確認してください。');
+    else if (msg.includes('429')) alert('⚠ リクエスト制限。少し待ってから再試行してください。');
+    else alert('エラー: ' + msg);
+  } finally {
+    aiBusy = false;
+    document.getElementById('btnSend').disabled = false;
+    document.getElementById('btnStartSession').disabled = false;
+    document.getElementById('aiLoading').classList.remove('show');
+  }
+}
+
+function renderPastSessions(sessions, activeId) {
+  const card = document.getElementById('pastSessionsCard');
+  const el   = document.getElementById('pastSessionsList');
+  const past = sessions.filter(s => s.id !== activeId);
+  if (!past.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  el.innerHTML = past.map(s => {
+    const preview = (s.messages.find(m => m.role === 'assistant')?.content || '').replace(/#+/g,'').trim().slice(0,60);
+    return `<div class="session-item" onclick="loadSession('${s.id}')">
+      <div style="overflow:hidden">
+        <div class="session-title">${s.date}（${s.month}）</div>
+        <div class="session-preview">${esc(preview)}…</div>
+      </div>
+      <button class="btn-del-session" onclick="event.stopPropagation();deleteSession('${s.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function loadSession(id) {
+  const s = load().students.find(x => x.id === currentId);
+  const session = s?.chatSessions?.find(x => x.id === id);
+  if (!session) return;
+  currentSessionId = id;
+  showChat(session);
+}
+
+function deleteSession(id) {
+  if (!confirm('このセッションを削除しますか？')) return;
+  const data = load();
+  const s = data.students.find(x => x.id === currentId);
+  if (s) s.chatSessions = (s.chatSessions || []).filter(x => x.id !== id);
+  persist(data);
+  if (currentSessionId === id) { currentSessionId = null; loadAi(); }
+  else renderPastSessions(load().students.find(x => x.id === currentId)?.chatSessions || [], currentSessionId);
+}
+
+function buildSystem(s) {
+  const today = new Date();
+  const ym = `${today.getFullYear()}年${today.getMonth()+1}月`;
+
+  // SNS data (last 6 months) with growth calc
+  const snsKeys = Object.keys(s.sns || {}).sort().slice(-6);
+  const snsLines = snsKeys.length
+    ? snsKeys.map((k, i) => {
+        const c = s.sns[k];
+        const prev = i > 0 ? s.sns[snsKeys[i-1]] : null;
+        const [y,m] = k.split('-');
+        const igGrowth = prev && prev.igF > 0 ? `(${((c.igF-prev.igF)/prev.igF*100).toFixed(1)}%増減)` : '';
+        const ttGrowth = prev && prev.ttF > 0 ? `(${((c.ttF-prev.ttF)/prev.ttF*100).toFixed(1)}%増減)` : '';
+        return `${y}年${+m}月: IG投稿[S:${c.story||0}/R:${c.reel||0}/F:${c.feed||0}] TT投稿:${c.tiktok||0} IGフォロワー:${num(c.igF)}人${igGrowth} TTフォロワー:${num(c.ttF)}人${ttGrowth}`;
+      }).join('\n')
+    : 'データなし';
+
+  // Best performing months analysis
+  let bestIgGrowth = '', bestTtGrowth = '';
+  if (snsKeys.length >= 2) {
+    let maxIg = -Infinity, maxTt = -Infinity, bestIgMonth = '', bestTtMonth = '';
+    for (let i = 1; i < snsKeys.length; i++) {
+      const c = s.sns[snsKeys[i]], p = s.sns[snsKeys[i-1]];
+      const igD = (c.igF||0) - (p.igF||0);
+      const ttD = (c.ttF||0) - (p.ttF||0);
+      if (igD > maxIg) { maxIg = igD; bestIgMonth = snsKeys[i]; }
+      if (ttD > maxTt) { maxTt = ttD; bestTtMonth = snsKeys[i]; }
+    }
+    if (bestIgMonth) {
+      const [y,m] = bestIgMonth.split('-');
+      const c = s.sns[bestIgMonth];
+      bestIgGrowth = `IGフォロワーが最も増えた月: ${y}年${+m}月(+${maxIg}人) その月の投稿[S:${c.story||0}/R:${c.reel||0}/F:${c.feed||0}]`;
+    }
+    if (bestTtMonth) {
+      const [y,m] = bestTtMonth.split('-');
+      const c = s.sns[bestTtMonth];
+      bestTtGrowth = `TTフォロワーが最も増えた月: ${y}年${+m}月(+${maxTt}人) その月のTT投稿:${c.tiktok||0}本`;
+    }
+  }
+
+  // Sales data
+  const salesKeys = Object.keys(s.sales || {}).sort().slice(-6);
+  const salesLines = salesKeys.length
+    ? salesKeys.map(k => {
+        const c = s.sales[k], [y,m] = k.split('-');
+        const unit = c.customers > 0 ? Math.round(c.amount/c.customers) : 0;
+        return `${y}年${+m}月: 売上¥${num(c.amount)} 客数${c.customers||0}人 客単価¥${num(unit)}`;
+      }).join('\n')
+    : 'データなし';
+
+  // MTG notes
+  const mtgKeys = Object.keys(s.mtg || {}).sort().slice(-3);
+  const mtgLines = mtgKeys.length
+    ? mtgKeys.map(k => { const [y,m] = k.split('-'); return `${y}年${+m}月: ${s.mtg[k].content||''}`; }).join('\n')
+    : 'なし';
+
+  return `あなたは美容師・美容クリエイター専門のSNSコンサルタントです。現在は${ym}です。
+
+このチャットは「壁打ち形式」で進めてください。
+一方的にアドバイスするのではなく、質問と回答を重ねながら分析の精度を高めていきます。
+
+━━━ 塾生プロフィール ━━━
+氏名: ${s.name}
+サロン: ${s.salon || '未設定'}
+Instagram: ${s.igAccount || '未設定'} / TikTok: ${s.ttAccount || '未設定'}
+得意技術: ${s.specialty || '未設定'}
+ターゲット: ${s.target || '未設定'}
+発信の強み: ${s.strength || '未設定'}
+
+━━━ SNSデータ（直近6ヶ月） ━━━
+${snsLines}
+最高成長月(IG): ${bestIgGrowth || 'データ不足'}
+最高成長月(TT): ${bestTtGrowth || 'データ不足'}
+
+━━━ 売上・客数 ━━━
+${salesLines}
+
+━━━ MTG内容 ━━━
+${mtgLines}
+
+━━━ 業界ベンチマーク（比較基準） ━━━
+■ Instagram（美容師クリエイター平均）
+- フォロワー月間成長率: 良好3〜8%／優秀8%以上
+- リール投稿: 推奨週3〜5本
+- フィード投稿: 推奨週2〜3本
+- エンゲージメント率（1万人以下）: 平均4〜8%
+
+■ TikTok（美容師クリエイター平均）
+- フォロワー月間成長率: 成長期15〜50%／安定期5〜15%
+- 動画投稿: 最低週3本・推奨週5〜7本
+- 視聴完了率: 30〜50%が目標
+
+■ SNS→集客転換（業界平均）
+- フォロワー1万人で月5〜15人の新規来店
+- プロフィールに予約導線があると転換率2〜3倍
+
+━━━ 進め方 ━━━
+「分析を開始してください。」と言われたら、まず以下を行ってください：
+
+1. **ベンチマーク比較** — データを業界平均と比較し、この人が「上回っている点」「下回っている点」を明確に示す
+2. **勝ちパターンの特定** — フォロワーが最も伸びた月に何をしていたか分析
+3. **現在のトレンド** — ${ym}の美容師SNSで伸びているコンテンツ傾向・フォーマット・音源を具体的に
+4. **質問（2〜3個）** — より精度の高い戦略を立てるために、この人の状況をさらに深掘りする質問をする
+   （例: どんな投稿が一番反応があったか、投稿にかけられる時間、過去にバズった経験はあるか、など）
+
+その後の会話では、回答をもとにInstagram・TikTokそれぞれの具体的な投稿テーマ・タイトル・戦略を提案してください。
+**常にこの人の得意技術・ターゲット・強みに特化した提案をすること。一般論は不要。**`;
+}
+
+
+// Simple markdown → HTML
+function mdToHtml(md) {
+  return md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/^(?!<[hup])(.+)$/gm, '$1')
+    .replace(/^<p><\/p>$/gm, '')
+    .replace(/(<h[23]>)/g, '</p>$1<p>')
+    .replace(/^<\/p>/, '')
+    .replace(/<p><\/p>/g, '');
+}
+
+// ============================================================
+// Save dispatcher
+// ============================================================
+function saveCurrentTab(silent) {
+  if (currentTab === 'sns')   saveSns();
+  if (currentTab === 'sales') saveSales();
+  if (currentTab === 'mtg')   saveMtg();
+  isDirty = false;
+  if (!silent) {
+    const msg = document.getElementById('savedMsg');
+    msg.classList.add('show');
+    setTimeout(() => msg.classList.remove('show'), 2000);
+    loadCurrentTab();
+  }
+}
+
+// ============================================================
+// Charts
+// ============================================================
+function chartOpts(unit, money) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12, padding: 12 } } },
+    scales: {
+      x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+      y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: v => money ? '¥'+v.toLocaleString() : v.toLocaleString()+unit } }
+    }
+  };
+}
+function destroyCharts() { Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} }); charts = {}; }
+function monthLabel(k)   { const [y,m] = k.split('-'); return `${y}年${+m}月`; }
+
+// ============================================================
+// Modals
+// ============================================================
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '塾生を追加';
+  ['inputName','inputPhone','inputEmail','inputMemo','inputIg','inputTt'].forEach(id => set(id,''));
+  document.getElementById('studentModal').classList.add('open');
+  setTimeout(() => document.getElementById('inputName').focus(), 50);
+}
+
+function openEditModal() {
+  const s = load().students.find(x => x.id === currentId);
+  if (!s) return;
+  editingId = s.id;
+  document.getElementById('modalTitle').textContent = '塾生を編集';
+  set('inputName', s.name||''); set('inputPhone', s.phone||''); set('inputEmail', s.email||'');
+  set('inputMemo', s.memo||''); set('inputIg', s.igAccount||''); set('inputTt', s.ttAccount||'');
+  set('inputSalon', s.salon||''); set('inputSpecialty', s.specialty||'');
+  set('inputTarget', s.target||''); set('inputStrength', s.strength||'');
+  document.getElementById('studentModal').classList.add('open');
+  setTimeout(() => document.getElementById('inputName').focus(), 50);
+}
+
+function openSettings() {
+  const inp = document.getElementById('inputApiKey');
+  inp.type = 'password';
+  inp.value = getApiKey();
+  document.getElementById('btnToggleKey').textContent = '表示';
+  document.getElementById('apiKeyStatus').style.display = 'none';
+  document.getElementById('inputIgAppId').value = getIgAppId();
+  document.getElementById('inputIgSecret').value = getIgSecret();
+  document.getElementById('settingsModal').classList.add('open');
+  setTimeout(() => inp.focus(), 50);
+}
+
+function toggleApiKeyVisibility() {
+  const inp = document.getElementById('inputApiKey');
+  const btn = document.getElementById('btnToggleKey');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '隠す'; }
+  else { inp.type = 'password'; btn.textContent = '表示'; }
+}
+
+function saveSettings() {
+  const key = document.getElementById('inputApiKey').value.trim();
+  const statusEl = document.getElementById('apiKeyStatus');
+
+  if (!key) {
+    statusEl.style.display = '';
+    statusEl.style.color = '#ef4444';
+    statusEl.textContent = '⚠ APIキーを入力してください';
+    return;
+  }
+  if (!key.startsWith('sk-ant-')) {
+    statusEl.style.display = '';
+    statusEl.style.color = '#ef4444';
+    statusEl.textContent = '⚠ キーの形式が正しくありません。「sk-ant-」から始まるキーを貼り付けてください';
+    return;
+  }
+
+  saveApiKey(key);
+  saveIgAppId(document.getElementById('inputIgAppId').value.trim());
+  saveIgSecret(document.getElementById('inputIgSecret').value.trim());
+  statusEl.style.display = '';
+  statusEl.style.color = '#22c55e';
+  statusEl.textContent = '✓ 保存しました';
+  setTimeout(() => {
+    closeModal('settingsModal');
+    if (currentTab === 'ai') loadAi();
+  }, 800);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function saveStudent() {
+  const name = document.getElementById('inputName').value.trim();
+  if (!name) { alert('氏名を入力してください'); return; }
+  const fields = {
+    name, phone: val('inputPhone'), email: val('inputEmail'),
+    memo: val('inputMemo'), igAccount: val('inputIg'), ttAccount: val('inputTt'),
+    salon: val('inputSalon'), specialty: val('inputSpecialty'),
+    target: val('inputTarget'), strength: val('inputStrength'),
+  };
+  const data = load();
+  if (editingId) {
+    const s = data.students.find(x => x.id === editingId);
+    if (s) Object.assign(s, fields);
+    persist(data); closeModal('studentModal'); showDetail(editingId);
+  } else {
+    data.students.push({ id: 'stu_' + Date.now(), ...fields, sns: {}, sales: {}, mtg: {}, reports: [] });
+    persist(data); closeModal('studentModal'); renderList();
+  }
+}
+
+function confirmDelete() {
+  const s = load().students.find(x => x.id === currentId);
+  if (!s || !confirm(`「${s.name}」を削除しますか？この操作は元に戻せません。`)) return;
+  const data = load();
+  data.students = data.students.filter(x => x.id !== currentId);
+  persist(data); showList();
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+function set(id, val) { document.getElementById(id).value = val; }
+function val(id)      { return document.getElementById(id).value.trim(); }
+function int(id)      { return parseInt(document.getElementById(id).value) || 0; }
+function num(v)       { return (v||0).toLocaleString(); }
+function noData()     { return '<p style="color:#bbb;font-size:13px">まだデータがありません</p>'; }
+function esc(s)       { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ============================================================
+// Instagram API連携
+// ============================================================
+function renderIgConnect(s) {
+  const el = document.getElementById('igConnectSection');
+  if (!el) return;
+  const appId = getIgAppId();
+  const token = s?.igToken;
+
+  if (token) {
+    el.innerHTML = `
+      <div style="background:#f0fff4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:22px">✅</span>
+        <div style="flex:1;min-width:120px">
+          <div style="font-size:13px;font-weight:600;color:#16a34a">Instagram連携済み</div>
+          <div style="font-size:12px;color:#4ade80;margin-top:2px">${s.igUser ? '@'+esc(s.igUser)+' • ' : ''}トークン設定済み</div>
+        </div>
+        <button onclick="fetchIgData()" style="background:#16a34a;color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 フォロワー数を取得</button>
+        <button onclick="disconnectIg()" style="background:none;border:1px solid #ccc;color:#999;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12px">解除</button>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 18px">
+        <div style="font-size:13px;font-weight:600;color:#c2410c;margin-bottom:4px">📸 Instagram連携</div>
+        <div style="font-size:12px;color:#9a3412;line-height:1.7;margin-bottom:12px">
+          連携するとフォロワー数を自動取得できます<br>
+          <span style="font-size:11px;color:#b45309">※ Instagramビジネス/クリエイターアカウント＋Facebookページ連携が必要です</span>
+        </div>
+        ${!appId ? '<div style="font-size:12px;color:#ef4444;background:#fff0f0;border-radius:6px;padding:7px 10px;margin-bottom:10px">⚠ 設定（⚙）でInstagram App IDを入力してください</div>' : ''}
+        <button onclick="openIgAuthModal()" ${!appId ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : 'style="cursor:pointer;"'}
+          style="background:#e0535b;color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600">
+          📸 Instagramを連携する
+        </button>
+      </div>`;
+  }
+}
+
+function openIgAuthModal() {
+  document.getElementById('igRedirectUrl').value = '';
+  const s = document.getElementById('igAuthStatus');
+  s.style.display = 'none'; s.textContent = '';
+  document.getElementById('igAuthModal').classList.add('open');
+}
+
+async function connectIgDirect() {
+  const input    = document.getElementById('igRedirectUrl').value.trim();
+  const statusEl = document.getElementById('igAuthStatus');
+  statusEl.style.display = '';
+
+  if (!input) {
+    statusEl.style.background = '#fff0f0'; statusEl.style.color = '#ef4444';
+    statusEl.textContent = '⚠ アクセストークンを貼り付けてください'; return;
+  }
+
+  // トークンはEAAで始まるかURLに含まれる場合どちらも対応
+  let token = input;
+  if (input.includes('access_token=')) {
+    const m = input.match(/access_token=([^&\s]+)/);
+    if (m) token = m[1];
+  }
+
+  if (!token.startsWith('EAA') && !token.startsWith('EAAG')) {
+    statusEl.style.background = '#fff0f0'; statusEl.style.color = '#ef4444';
+    statusEl.textContent = '⚠ トークンの形式が正しくありません。EAAで始まるトークンを貼り付けてください'; return;
+  }
+
+  const data = load();
+  const s = data.students.find(x => x.id === currentId);
+  if (!s) return;
+
+  statusEl.style.background = '#f0fff4'; statusEl.style.color = '#16a34a';
+  statusEl.textContent = '✓ トークン確認中…長期トークンに変換しています';
+
+  // 長期トークン（60日）に変換を試みる
+  const longToken = await exchangeForLongToken(token);
+  s.igToken = longToken;
+  persist(data);
+
+  statusEl.textContent = longToken !== token
+    ? '✓ 60日間有効な長期トークンに変換完了！データを取得します…'
+    : '✓ トークン保存完了！データを取得します…';
+
+  setTimeout(() => {
+    closeModal('igAuthModal');
+    loadSns();
+    fetchIgData();
+  }, 900);
+}
+
+function openIgPopup() {
+  const appId = getIgAppId();
+  if (!appId) { alert('設定でInstagram App IDを入力してください'); return; }
+  const redirect = encodeURIComponent('https://localhost/');
+  const scope    = 'instagram_basic,pages_show_list';
+  const url = `https://www.facebook.com/dialog/oauth?client_id=${appId}&redirect_uri=${redirect}&scope=${scope}&response_type=token&display=popup`;
+  window.open(url, 'ig-auth', 'width=640,height=700,scrollbars=yes,resizable=yes');
+}
+
+function connectIg() {
+  const urlStr   = document.getElementById('igRedirectUrl').value.trim();
+  const statusEl = document.getElementById('igAuthStatus');
+  statusEl.style.display = '';
+
+  if (!urlStr) {
+    statusEl.style.background = '#fff0f0'; statusEl.style.color = '#ef4444';
+    statusEl.textContent = '⚠ URLを貼り付けてください'; return;
+  }
+
+  // Extract access_token from URL hash or query
+  let token = '';
+  try {
+    const hashPart  = urlStr.includes('#') ? urlStr.split('#')[1] : '';
+    const queryPart = urlStr.includes('?') ? urlStr.split('?')[1].split('#')[0] : '';
+    token = new URLSearchParams(hashPart).get('access_token')
+         || new URLSearchParams(queryPart).get('access_token')
+         || '';
+  } catch(e) {
+    const m = urlStr.match(/access_token=([^&\s]+)/);
+    if (m) token = m[1];
+  }
+
+  if (!token) {
+    statusEl.style.background = '#fff0f0'; statusEl.style.color = '#ef4444';
+    statusEl.textContent = '⚠ URLからトークンを取得できませんでした。アドレスバーのURLをそのままコピーして貼り付けてください'; return;
+  }
+
+  const data = load();
+  const s = data.students.find(x => x.id === currentId);
+  if (!s) return;
+  s.igToken = token;
+  persist(data);
+
+  statusEl.style.background = '#f0fff4'; statusEl.style.color = '#16a34a';
+  statusEl.textContent = '✓ トークン取得成功！データを取得します…';
+
+  setTimeout(() => {
+    closeModal('igAuthModal');
+    loadSns();
+    fetchIgData();
+  }, 700);
+}
+
+async function fetchIgData() {
+  const data = load();
+  const s    = data.students.find(x => x.id === currentId);
+  const token = s?.igToken;
+  if (!token) { alert('先にInstagramを連携してください'); return; }
+
+  const el = document.getElementById('igConnectSection');
+  if (el) el.innerHTML = `<div style="padding:14px 18px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:12px;font-size:13px;color:#3b82f6">📊 Instagramデータ取得中...</div>`;
+
+  try {
+    // 1. ユーザーのFacebookページ一覧を取得
+    const pagesRes  = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${token}`);
+    const pagesJson = await pagesRes.json();
+    if (pagesJson.error) throw new Error(pagesJson.error.message);
+    if (!pagesJson.data?.length) throw new Error('Facebookページが見つかりません。Facebookページを作成し、Instagramビジネスアカウントと連携してください。');
+
+    // 2. ページからInstagramビジネスアカウントIDを取得
+    let igId = null, pageToken = null;
+    for (const page of pagesJson.data) {
+      const pgRes  = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
+      const pgJson = await pgRes.json();
+      if (pgJson.instagram_business_account?.id) {
+        igId = pgJson.instagram_business_account.id;
+        pageToken = page.access_token;
+        break;
+      }
+    }
+    if (!igId) throw new Error('InstagramビジネスアカウントがFacebookページと連携されていません。\nInstagramアプリ→設定→アカウント→プロアカウントに切り替え→Facebookページと連携 を確認してください。');
+
+    // 3. Instagramデータ（フォロワー数）を取得
+    const igRes  = await fetch(`https://graph.facebook.com/v18.0/${igId}?fields=followers_count,media_count,username&access_token=${pageToken}`);
+    const igJson = await igRes.json();
+    if (igJson.error) throw new Error(igJson.error.message);
+
+    // 4. 今月のメディアを取得してリール・フィード数をカウント
+    const startOfMonth = new Date(currentYear, currentMonth - 1, 1);
+    const endOfMonth   = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+    let reelCount = 0, feedCount = 0;
+    try {
+      const mediaRes  = await fetch(`https://graph.facebook.com/v18.0/${igId}/media?fields=media_type,timestamp&limit=100&access_token=${pageToken}`);
+      const mediaJson = await mediaRes.json();
+      for (const item of (mediaJson.data || [])) {
+        const d = new Date(item.timestamp);
+        if (d >= startOfMonth && d <= endOfMonth) {
+          if (item.media_type === 'REELS') reelCount++;
+          else if (['IMAGE','VIDEO','CAROUSEL_ALBUM'].includes(item.media_type)) feedCount++;
+        }
+      }
+    } catch(e) { /* メディア取得失敗はスキップ */ }
+
+    // 5. SNSデータに保存
+    const upd = load();
+    const upS = upd.students.find(x => x.id === currentId);
+    if (!upS) return;
+    const key = mKey(currentYear, currentMonth);
+    if (!upS.sns) upS.sns = {};
+    if (!upS.sns[key]) upS.sns[key] = {};
+    upS.sns[key].igF  = igJson.followers_count || 0;
+    upS.sns[key].reel = reelCount;
+    upS.sns[key].feed = feedCount;
+    if (igJson.username) upS.igUser = igJson.username;
+    persist(upd);
+
+    alert(`✅ 取得成功！\n\n@${igJson.username || ''}\nフォロワー: ${(igJson.followers_count||0).toLocaleString()}人\nリール: ${reelCount}本\nフィード: ${feedCount}投稿\n※ストーリーは手動入力してください\n\n${currentYear}年${currentMonth}月に反映しました。`);
+    loadSns();
+
+  } catch(e) {
+    const upS2 = load().students.find(x => x.id === currentId);
+    renderIgConnect(upS2);
+    alert('❌ データ取得エラー:\n\n' + e.message);
+  }
+}
+
+function disconnectIg() {
+  if (!confirm('Instagram連携を解除しますか？\nトークンとユーザー情報が削除されます。')) return;
+  const data = load();
+  const s = data.students.find(x => x.id === currentId);
+  if (s) { delete s.igToken; delete s.igUser; persist(data); }
+  loadSns();
+}
+
+function toggleSecretVisibility() {
+  const inp = document.getElementById('inputIgSecret');
+  const btn = document.getElementById('btnToggleSecret');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '隠す'; }
+  else { inp.type = 'password'; btn.textContent = '表示'; }
+}
+
+// 長期トークンに変換（60日間有効）
+async function exchangeForLongToken(shortToken) {
+  const appId = getIgAppId(), appSecret = getIgSecret();
+  if (!appId || !appSecret) return shortToken;
+  try {
+    const res  = await fetch(`https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortToken}`);
+    const data = await res.json();
+    if (data.access_token) return data.access_token;
+  } catch(e) {}
+  return shortToken;
+}
+
+// 週次レポートチェック
+function checkWeeklyReport(s) {
+  const banner = document.getElementById('weeklyReportBanner');
+  if (!banner) return;
+  const sessions = s?.chatSessions || [];
+  if (!sessions.length) { banner.style.display = 'none'; return; }
+
+  const lastDateStr = sessions[0].date; // "2025/5/23"
+  const parts = lastDateStr.split('/');
+  if (parts.length !== 3) { banner.style.display = 'none'; return; }
+
+  const lastDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  const today    = new Date(); today.setHours(0,0,0,0);
+  const daysSince = Math.floor((today - lastDate) / 86400000);
+
+  if (daysSince >= 7) {
+    banner.style.display = 'flex';
+    document.getElementById('weeklyDaysText').textContent = `前回のAI分析から ${daysSince} 日経過しています`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+['studentModal','settingsModal','importModal','igAuthModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => { if (e.target.id === id) closeModal(id); });
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(id); });
+});
+
+renderList();
+</script>
+</body>
+</html>
