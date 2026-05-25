@@ -481,43 +481,33 @@
 
 <!-- Instagram Auth Modal -->
 <div class="modal-overlay" id="igAuthModal">
-  <div class="modal" style="max-width:520px">
+  <div class="modal" style="max-width:440px">
     <h2>📸 Instagram連携</h2>
-    <p style="font-size:13px;color:#888;line-height:1.7;margin:6px 0 18px">
-      Graph API Explorerからアクセストークンを取得して貼り付けます。
+    <p style="font-size:13px;color:#888;line-height:1.7;margin:6px 0 20px">
+      ボタンを押してFacebookにログインするだけで自動連携できます。
     </p>
 
-    <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:8px">STEP 1 ― Graph API Explorerを開く</div>
-      <p style="font-size:13px;color:#3b82f6;margin-bottom:12px;line-height:1.6">下のボタンでGraph API Explorerを開いてください。</p>
-      <button onclick="window.open('https://developers.facebook.com/tools/explorer/','_blank')" style="background:#1d4ed8;color:#fff;border:none;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">
-        Graph API Explorerを開く ↗
+    <div style="text-align:center;padding:10px 0 20px">
+      <button onclick="openIgPopup()" style="background:#1877f2;color:#fff;border:none;padding:14px 32px;border-radius:10px;cursor:pointer;font-size:15px;font-weight:700;letter-spacing:0.3px">
+        🔗 Facebookでログインして連携
       </button>
+      <p style="font-size:12px;color:#bbb;margin-top:10px">ポップアップが開きます。ログイン後に自動でトークンが保存されます。</p>
     </div>
 
-    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:16px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:#c2410c;margin-bottom:8px">STEP 2 ― トークンを生成</div>
-      <ol style="font-size:13px;color:#555;line-height:2;padding-left:18px;margin:0">
-        <li>右上のドロップダウンで自分のアプリを選択</li>
-        <li>「アクセストークンを生成」をクリック</li>
-        <li>許可を求められたら「許可」</li>
-        <li>表示されたトークンをコピー</li>
-      </ol>
-    </div>
-
-    <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:16px;margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:#7c3aed;margin-bottom:8px">STEP 3 ― トークンを貼り付け</div>
-      <div class="form-group" style="margin-bottom:0">
-        <label>アクセストークン</label>
-        <input type="text" id="igRedirectUrl" placeholder="EAAxxxxxxxxxxxxx..." style="font-size:13px">
+    <details style="margin-bottom:14px">
+      <summary style="font-size:12px;color:#aaa;cursor:pointer;padding:6px 0">手動でトークンを入力する場合</summary>
+      <div style="margin-top:10px">
+        <div class="form-group" style="margin-bottom:0">
+          <input type="text" id="igRedirectUrl" placeholder="EAAxxxxxxxxxxxxx..." style="font-size:13px">
+        </div>
+        <button onclick="connectIgDirect()" style="margin-top:8px;background:#7c3aed;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">手動で連携</button>
       </div>
-    </div>
+    </details>
 
     <div id="igAuthStatus" style="font-size:13px;padding:8px 12px;border-radius:8px;margin-bottom:10px;display:none"></div>
 
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('igAuthModal')">キャンセル</button>
-      <button class="btn-primary" onclick="connectIgDirect()">連携する</button>
     </div>
   </div>
 </div>
@@ -569,6 +559,20 @@
 </div>
 
 <script>
+// OAuth redirect detection: when this page loaded as callback from Facebook
+(function() {
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token=')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get('access_token');
+    if (token && window.opener) {
+      window.opener.postMessage({ type: 'ig_oauth_token', token: token }, '*');
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;font-size:16px;color:#16a34a">✅ 連携完了！このウィンドウは自動で閉じます</div>';
+      setTimeout(() => window.close(), 1500);
+    }
+  }
+})();
+
 // ============================================================
 // Storage
 // ============================================================
@@ -1591,10 +1595,37 @@ async function connectIgDirect() {
 function openIgPopup() {
   const appId = getIgAppId();
   if (!appId) { alert('設定でInstagram App IDを入力してください'); return; }
-  const redirect = encodeURIComponent('https://localhost/');
-  const scope    = 'instagram_basic,pages_show_list';
+  const redirect = encodeURIComponent('https://shunex0211-png.github.io/sss/');
+  const scope    = 'instagram_basic,pages_show_list,pages_read_engagement,business_management';
   const url = `https://www.facebook.com/dialog/oauth?client_id=${appId}&redirect_uri=${redirect}&scope=${scope}&response_type=token&display=popup`;
   window.open(url, 'ig-auth', 'width=640,height=700,scrollbars=yes,resizable=yes');
+
+  const handler = (event) => {
+    if (event.data && event.data.type === 'ig_oauth_token') {
+      window.removeEventListener('message', handler);
+      handleOAuthToken(event.data.token);
+    }
+  };
+  window.addEventListener('message', handler);
+}
+
+async function handleOAuthToken(token) {
+  if (!token) return;
+  const statusEl = document.getElementById('igAuthStatus');
+  if (statusEl) {
+    statusEl.style.display = '';
+    statusEl.style.background = '#f0fff4';
+    statusEl.style.color = '#16a34a';
+    statusEl.textContent = '✓ トークン確認中…長期トークンに変換しています';
+  }
+  const data = load();
+  const s = data.students.find(x => x.id === currentId);
+  if (!s) return;
+  const longToken = await exchangeForLongToken(token);
+  s.igToken = longToken;
+  persist(data);
+  if (statusEl) statusEl.textContent = longToken !== token ? '✓ 60日間有効なトークンに変換完了！データを取得します…' : '✓ 連携完了！データを取得します…';
+  setTimeout(() => { closeModal('igAuthModal'); loadSns(); fetchIgData(); }, 900);
 }
 
 function connectIg() {
