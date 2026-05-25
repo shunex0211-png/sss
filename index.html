@@ -552,8 +552,13 @@
         <button type="button" onclick="toggleSecretVisibility()" style="background:#f0f0f0;border:1px solid #ddd;border-radius:8px;padding:10px 12px;cursor:pointer;font-size:13px" id="btnToggleSecret">表示</button>
       </div>
     </div>
+    <div class="form-group" style="margin-top:10px">
+      <label>Facebook Page ID <span style="font-size:11px;color:#aaa">（取得エラー時に入力）</span></label>
+      <input type="text" id="inputIgPageId" placeholder="例：123456789012345">
+    </div>
     <p style="font-size:12px;color:#aaa;line-height:1.7;background:#f8f8f8;padding:10px 12px;border-radius:8px">
-      Meta Developer → 設定 → ベーシック で確認できます。<br>
+      Meta Developer → 設定 → ベーシック でApp SecretとApp IDを確認。<br>
+      Facebook Page IDはFacebookページの「ページについて」→「詳細情報」に記載の数字です。<br>
       App Secretを入力すると<strong>60日間有効</strong>な長期トークンに自動変換されます。
     </p>
     <div class="modal-actions" style="margin-top:16px">
@@ -576,6 +581,8 @@ function getIgAppId()    { return localStorage.getItem('igAppId') || ''; }
 function saveIgAppId(v)  { localStorage.setItem('igAppId', v); }
 function getIgSecret()   { return localStorage.getItem('igSecret') || ''; }
 function saveIgSecret(v) { localStorage.setItem('igSecret', v); }
+function getIgPageId()   { return localStorage.getItem('igPageId') || ''; }
+function saveIgPageId(v) { localStorage.setItem('igPageId', v); }
 
 // ============================================================
 // State
@@ -1410,6 +1417,7 @@ function openSettings() {
   document.getElementById('apiKeyStatus').style.display = 'none';
   document.getElementById('inputIgAppId').value = getIgAppId();
   document.getElementById('inputIgSecret').value = getIgSecret();
+  document.getElementById('inputIgPageId').value = getIgPageId();
   document.getElementById('settingsModal').classList.add('open');
   setTimeout(() => inp.focus(), 50);
 }
@@ -1441,6 +1449,7 @@ function saveSettings() {
   saveApiKey(key);
   saveIgAppId(document.getElementById('inputIgAppId').value.trim());
   saveIgSecret(document.getElementById('inputIgSecret').value.trim());
+  saveIgPageId(document.getElementById('inputIgPageId').value.trim());
   statusEl.style.display = '';
   statusEl.style.color = '#22c55e';
   statusEl.textContent = '✓ 保存しました';
@@ -1642,27 +1651,51 @@ async function fetchIgData() {
   if (el) el.innerHTML = `<div style="padding:14px 18px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:12px;font-size:13px;color:#3b82f6">📊 Instagramデータ取得中...</div>`;
 
   try {
-    // 1. ユーザーのFacebookページ一覧を取得
-    const pagesRes  = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${token}`);
-    const pagesJson = await pagesRes.json();
-    if (pagesJson.error) throw new Error(pagesJson.error.message);
-    if (!pagesJson.data?.length) throw new Error('Facebookページが見つかりません。Facebookページを作成し、Instagramビジネスアカウントと連携してください。');
+    let igId = null, useToken = token;
 
-    // 2. ページからInstagramビジネスアカウントIDを取得
-    let igId = null, pageToken = null;
-    for (const page of pagesJson.data) {
-      const pgRes  = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
-      const pgJson = await pgRes.json();
-      if (pgJson.instagram_business_account?.id) {
-        igId = pgJson.instagram_business_account.id;
-        pageToken = page.access_token;
-        break;
+    // 方法1: ページトークンの場合 → /me?fields=instagram_business_account で直接取得
+    const meRes  = await fetch(`https://graph.facebook.com/v18.0/me?fields=instagram_business_account&access_token=${token}`);
+    const meJson = await meRes.json();
+    if (meJson.instagram_business_account?.id) {
+      igId = meJson.instagram_business_account.id;
+    }
+
+    // 方法2: 設定に保存されたPage IDから直接取得
+    if (!igId) {
+      const pageId = getIgPageId();
+      if (pageId) {
+        try {
+          const pgRes  = await fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account,access_token&access_token=${token}`);
+          const pgJson = await pgRes.json();
+          if (pgJson.instagram_business_account?.id) {
+            igId = pgJson.instagram_business_account.id;
+            if (pgJson.access_token) useToken = pgJson.access_token;
+          }
+        } catch(e) {}
       }
     }
-    if (!igId) throw new Error('InstagramビジネスアカウントがFacebookページと連携されていません。\nInstagramアプリ→設定→アカウント→プロアカウントに切り替え→Facebookページと連携 を確認してください。');
+
+    // 方法3: /me/accounts でページ一覧から取得
+    if (!igId) {
+      const pagesRes  = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${token}`);
+      const pagesJson = await pagesRes.json();
+      if (!pagesJson.error && pagesJson.data?.length) {
+        for (const page of pagesJson.data) {
+          const pgRes  = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
+          const pgJson = await pgRes.json();
+          if (pgJson.instagram_business_account?.id) {
+            igId = pgJson.instagram_business_account.id;
+            useToken = page.access_token;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!igId) throw new Error('InstagramビジネスアカウントのIDが取得できませんでした。\n\n設定（⚙）の「Facebook Page ID」にFacebookページのIDを入力してください。\nFacebookページ → 「ページについて」→「詳細情報」に記載の数字です。');
 
     // 3. Instagramデータ（フォロワー数）を取得
-    const igRes  = await fetch(`https://graph.facebook.com/v18.0/${igId}?fields=followers_count,media_count,username&access_token=${pageToken}`);
+    const igRes  = await fetch(`https://graph.facebook.com/v18.0/${igId}?fields=followers_count,media_count,username&access_token=${useToken}`);
     const igJson = await igRes.json();
     if (igJson.error) throw new Error(igJson.error.message);
 
@@ -1671,7 +1704,7 @@ async function fetchIgData() {
     const endOfMonth   = new Date(currentYear, currentMonth, 0, 23, 59, 59);
     let reelCount = 0, feedCount = 0;
     try {
-      const mediaRes  = await fetch(`https://graph.facebook.com/v18.0/${igId}/media?fields=media_type,timestamp&limit=100&access_token=${pageToken}`);
+      const mediaRes  = await fetch(`https://graph.facebook.com/v18.0/${igId}/media?fields=media_type,timestamp&limit=100&access_token=${useToken}`);
       const mediaJson = await mediaRes.json();
       for (const item of (mediaJson.data || [])) {
         const d = new Date(item.timestamp);
