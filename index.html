@@ -433,6 +433,17 @@
     <div class="form-group"><label>電話番号</label><input type="text" id="inputPhone" placeholder="例：090-0000-0000"></div>
     <div class="form-group"><label>メールアドレス</label><input type="email" id="inputEmail" placeholder="例：hanako@example.com"></div>
     <div class="form-group"><label>メモ</label><input type="text" id="inputMemo" placeholder="例：入塾日、クラスなど"></div>
+    <div class="form-group">
+      <label>集客導線</label>
+      <select id="inputSource" style="width:100%;border:1px solid #ddd;border-radius:8px;padding:10px 12px;font-size:15px;outline:none;font-family:inherit;background:#fff">
+        <option value="">未設定</option>
+        <option value="SNS">SNS</option>
+        <option value="紹介">紹介</option>
+        <option value="ミニモ">ミニモ</option>
+        <option value="ネイリー">ネイリー</option>
+        <option value="モデハン">モデハン</option>
+      </select>
+    </div>
     <div class="form-section">SNSアカウント</div>
     <div class="form-group"><label>Instagram</label><input type="text" id="inputIg" placeholder="例：@hanako_hair"></div>
     <div class="form-group"><label>TikTok</label><input type="text" id="inputTt" placeholder="例：@hanako_tiktok"></div>
@@ -619,11 +630,15 @@ function renderList() {
     el.innerHTML = `<div class="empty-state"><p>まだ塾生が登録されていません</p><button class="btn-primary" onclick="openAddModal()">＋ 最初の塾生を追加</button></div>`;
     return;
   }
-  el.innerHTML = students.map(s => `
+  el.innerHTML = students.map(s => {
+    const srcColor = {SNS:'#3b82f6',紹介:'#16a34a',ミニモ:'#f59e0b',ネイリー:'#ec4899',モデハン:'#8b5cf6'}[s.source]||'';
+    const srcBadge = s.source ? `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${srcColor}20;color:${srcColor};border:1px solid ${srcColor}40;margin-left:8px">${esc(s.source)}</span>` : '';
+    return `
     <div class="student-card" onclick="showDetail('${s.id}')">
-      <div class="info"><h3>${esc(s.name)}</h3><p>${[s.phone,s.email,s.memo].filter(Boolean).map(esc).join('　')}</p></div>
+      <div class="info"><h3>${esc(s.name)}${srcBadge}</h3><p>${[s.phone,s.email,s.memo].filter(Boolean).map(esc).join('　')}</p></div>
       <span class="arrow">›</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ============================================================
@@ -640,6 +655,10 @@ function showDetail(id) {
   document.getElementById('detailName').textContent = s.name;
   document.getElementById('detailContact').textContent = [s.phone,s.email,s.memo].filter(Boolean).join('　');
   const handles = [];
+  if (s.source) {
+    const srcColor = {SNS:'#3b82f6',紹介:'#16a34a',ミニモ:'#f59e0b',ネイリー:'#ec4899',モデハン:'#8b5cf6'}[s.source]||'#6b7280';
+    handles.push(`<span class="sns-handle" style="background:${srcColor}20;border-color:${srcColor}50;color:${srcColor};font-weight:700">📍 ${esc(s.source)}</span>`);
+  }
   if (s.salon)     handles.push(`<span class="sns-handle">🏠 ${esc(s.salon)}</span>`);
   if (s.igAccount) handles.push(`<span class="sns-handle"><strong>IG</strong> ${esc(s.igAccount)}</span>`);
   if (s.ttAccount) handles.push(`<span class="sns-handle"><strong>TT</strong> ${esc(s.ttAccount)}</span>`);
@@ -1396,6 +1415,7 @@ function openAddModal() {
   editingId = null;
   document.getElementById('modalTitle').textContent = '塾生を追加';
   ['inputName','inputPhone','inputEmail','inputMemo','inputIg','inputTt'].forEach(id => set(id,''));
+  document.getElementById('inputSource').value = '';
   document.getElementById('studentModal').classList.add('open');
   setTimeout(() => document.getElementById('inputName').focus(), 50);
 }
@@ -1409,6 +1429,7 @@ function openEditModal() {
   set('inputMemo', s.memo||''); set('inputIg', s.igAccount||''); set('inputTt', s.ttAccount||'');
   set('inputSalon', s.salon||''); set('inputSpecialty', s.specialty||'');
   set('inputTarget', s.target||''); set('inputStrength', s.strength||'');
+  document.getElementById('inputSource').value = s.source||'';
   document.getElementById('studentModal').classList.add('open');
   setTimeout(() => document.getElementById('inputName').focus(), 50);
 }
@@ -1473,6 +1494,7 @@ function saveStudent() {
     memo: val('inputMemo'), igAccount: val('inputIg'), ttAccount: val('inputTt'),
     salon: val('inputSalon'), specialty: val('inputSpecialty'),
     target: val('inputTarget'), strength: val('inputStrength'),
+    source: document.getElementById('inputSource').value,
   };
   const data = load();
   if (editingId) {
