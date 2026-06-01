@@ -301,11 +301,17 @@
       <div id="igConnectSection" class="mt"></div>
 
       <div class="chart-card mt">
-        <h3>フォロワー推移</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h3 style="margin:0">フォロワー推移</h3>
+          <button id="btn-followers" onclick="toggleChart('followers')" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid #ddd;background:#f8f8f8;cursor:pointer;color:#666">📊 棒グラフ</button>
+        </div>
         <div class="chart-wrap"><canvas id="chartFollowers"></canvas></div>
       </div>
       <div class="chart-card">
-        <h3>月別投稿数</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h3 style="margin:0">月別投稿数</h3>
+          <button id="btn-posts" onclick="toggleChart('posts')" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid #ddd;background:#f8f8f8;cursor:pointer;color:#666">📈 折れ線</button>
+        </div>
         <div class="chart-wrap"><canvas id="chartPosts"></canvas></div>
       </div>
       <div class="history-card">
@@ -343,11 +349,17 @@
         </div>
       </div>
       <div class="chart-card mt">
-        <h3>売上推移</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h3 style="margin:0">売上推移</h3>
+          <button id="btn-sales" onclick="toggleChart('sales')" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid #ddd;background:#f8f8f8;cursor:pointer;color:#666">📈 折れ線</button>
+        </div>
         <div class="chart-wrap"><canvas id="chartSales"></canvas></div>
       </div>
       <div class="chart-card">
-        <h3>客数推移</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h3 style="margin:0">客数推移</h3>
+          <button id="btn-customers" onclick="toggleChart('customers')" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid #ddd;background:#f8f8f8;cursor:pointer;color:#666">📈 折れ線</button>
+        </div>
         <div class="chart-wrap"><canvas id="chartCustomers"></canvas></div>
       </div>
       <div class="history-card">
@@ -609,6 +621,20 @@ let currentTab   = 'sns';
 let isDirty      = false;
 let editingId    = null;
 let charts       = {};
+const chartTypes = { followers: 'line', posts: 'bar', sales: 'bar', customers: 'bar' };
+
+function toggleChart(name) {
+  chartTypes[name] = chartTypes[name] === 'bar' ? 'line' : 'bar';
+  const btn = document.getElementById('btn-' + name);
+  if (btn) btn.textContent = chartTypes[name] === 'bar' ? '📈 折れ線' : '📊 棒グラフ';
+  if (charts[name]) { try { charts[name].destroy(); } catch(e){} charts[name] = null; }
+  const s = load().students.find(x => x.id === currentId);
+  if (!s) return;
+  if      (name === 'followers') drawFollowers(s);
+  else if (name === 'posts')     drawPosts(s);
+  else if (name === 'sales')     drawSales(s);
+  else if (name === 'customers') drawCustomers(s);
+}
 
 function mKey(y, m)    { return `${y}-${String(m).padStart(2,'0')}`; }
 function prevKey(y, m) { return m === 1 ? mKey(y-1, 12) : mKey(y, m-1); }
@@ -771,11 +797,12 @@ function drawFollowers(s) {
   const keys = Object.keys(s.sns).sort().slice(-12);
   if (!keys.length) return;
   const ctx = document.getElementById('chartFollowers').getContext('2d');
+  const fType = chartTypes.followers;
   charts.followers = new Chart(ctx, {
-    type: 'line',
+    type: fType,
     data: { labels: keys.map(monthLabel), datasets: [
-      { label: 'Instagram', data: keys.map(k=>s.sns[k].igF||0), borderColor: '#c13584', backgroundColor: 'rgba(193,53,132,0.08)', tension: 0.35, fill: true, pointRadius: 4 },
-      { label: 'TikTok',    data: keys.map(k=>s.sns[k].ttF||0), borderColor: '#555',    backgroundColor: 'rgba(0,0,0,0.04)',       tension: 0.35, fill: true, pointRadius: 4 },
+      { label: 'Instagram', data: keys.map(k=>s.sns[k].igF||0), borderColor: '#c13584', backgroundColor: fType==='line' ? 'rgba(193,53,132,0.08)' : 'rgba(193,53,132,0.7)', tension: 0.35, fill: fType==='line', pointRadius: 4 },
+      { label: 'TikTok',    data: keys.map(k=>s.sns[k].ttF||0), borderColor: '#555',    backgroundColor: fType==='line' ? 'rgba(0,0,0,0.04)' : 'rgba(85,85,85,0.7)',         tension: 0.35, fill: fType==='line', pointRadius: 4 },
     ]},
     options: chartOpts('人')
   });
@@ -786,13 +813,14 @@ function drawPosts(s) {
   const keys = Object.keys(s.sns).sort().slice(-12);
   if (!keys.length) return;
   const ctx = document.getElementById('chartPosts').getContext('2d');
+  const pType = chartTypes.posts;
   charts.posts = new Chart(ctx, {
-    type: 'bar',
+    type: pType,
     data: { labels: keys.map(monthLabel), datasets: [
-      { label: 'ストーリー', data: keys.map(k=>s.sns[k].story||0),  backgroundColor: '#f09433' },
-      { label: 'リール',     data: keys.map(k=>s.sns[k].reel||0),   backgroundColor: '#c13584' },
-      { label: 'フィード',   data: keys.map(k=>s.sns[k].feed||0),   backgroundColor: '#833ab4' },
-      { label: 'TikTok',     data: keys.map(k=>s.sns[k].tiktok||0), backgroundColor: '#555' },
+      { label: 'ストーリー', data: keys.map(k=>s.sns[k].story||0),  backgroundColor: pType==='line'?'rgba(240,148,51,0.1)':'#f09433',  borderColor:'#f09433', tension:0.35, fill:false, pointRadius:3 },
+      { label: 'リール',     data: keys.map(k=>s.sns[k].reel||0),   backgroundColor: pType==='line'?'rgba(193,53,132,0.1)':'#c13584',  borderColor:'#c13584', tension:0.35, fill:false, pointRadius:3 },
+      { label: 'フィード',   data: keys.map(k=>s.sns[k].feed||0),   backgroundColor: pType==='line'?'rgba(131,58,180,0.1)':'#833ab4',  borderColor:'#833ab4', tension:0.35, fill:false, pointRadius:3 },
+      { label: 'TikTok',     data: keys.map(k=>s.sns[k].tiktok||0), backgroundColor: pType==='line'?'rgba(85,85,85,0.1)':'#555',       borderColor:'#555',    tension:0.35, fill:false, pointRadius:3 },
     ]},
     options: chartOpts('投稿')
   });
@@ -866,9 +894,10 @@ function drawSales(s) {
   if (!s?.sales) return;
   const keys = Object.keys(s.sales).sort().slice(-12);
   if (!keys.length) return;
+  const sType = chartTypes.sales;
   charts.sales = new Chart(document.getElementById('chartSales').getContext('2d'), {
-    type: 'bar',
-    data: { labels: keys.map(monthLabel), datasets: [{ label: '売上', data: keys.map(k=>s.sales[k].amount||0), backgroundColor: 'rgba(224,83,91,0.7)', borderColor: '#e0535b', borderWidth: 1 }]},
+    type: sType,
+    data: { labels: keys.map(monthLabel), datasets: [{ label: '売上', data: keys.map(k=>s.sales[k].amount||0), backgroundColor: sType==='line'?'rgba(224,83,91,0.1)':'rgba(224,83,91,0.7)', borderColor: '#e0535b', borderWidth: sType==='line'?2:1, tension:0.35, fill:sType==='line', pointRadius:4 }]},
     options: chartOpts('¥', true)
   });
 }
@@ -878,15 +907,20 @@ function drawCustomers(s) {
   const keys = Object.keys(s.sales).sort().slice(-12);
   if (!keys.length) return;
   const hasNewEx = keys.some(k => s.sales[k].newCustomers != null);
+  const cType = chartTypes.customers;
+  const isLine = cType === 'line';
   charts.customers = new Chart(document.getElementById('chartCustomers').getContext('2d'), {
-    type: 'bar',
-    data: { labels: keys.map(monthLabel), datasets: hasNewEx ? [
+    type: cType,
+    data: { labels: keys.map(monthLabel), datasets: (hasNewEx && !isLine) ? [
       { label: '新規', data: keys.map(k => s.sales[k].newCustomers||0), backgroundColor: 'rgba(99,102,241,0.8)', stack: 'c' },
       { label: '既存', data: keys.map(k => s.sales[k].existingCustomers||0), backgroundColor: 'rgba(167,139,250,0.6)', stack: 'c' },
+    ] : hasNewEx ? [
+      { label: '新規', data: keys.map(k => s.sales[k].newCustomers||0), borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,0.08)', tension:0.35, fill:false, pointRadius:4 },
+      { label: '既存', data: keys.map(k => s.sales[k].existingCustomers||0), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.08)', tension:0.35, fill:false, pointRadius:4 },
     ] : [
-      { label: '客数', data: keys.map(k => s.sales[k].customers||0), backgroundColor: 'rgba(99,102,241,0.7)', borderColor: '#6366f1', borderWidth: 1 },
+      { label: '客数', data: keys.map(k => s.sales[k].customers||0), backgroundColor: isLine?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.7)', borderColor: '#6366f1', borderWidth: isLine?2:1, tension:0.35, fill:isLine, pointRadius:4 },
     ]},
-    options: { ...chartOpts('人'), scales: { x: { stacked: true, ticks:{font:{size:10}}, grid:{display:false} }, y: { stacked: true, beginAtZero:true, ticks:{font:{size:10}, callback: v=>v+'人'} } } }
+    options: isLine ? chartOpts('人') : { ...chartOpts('人'), scales: { x: { stacked: true, ticks:{font:{size:10}}, grid:{display:false} }, y: { stacked: true, beginAtZero:true, ticks:{font:{size:10}, callback: v=>v+'人'} } } }
   });
 }
 
