@@ -345,6 +345,36 @@
               <span style="font-size:20px;font-weight:700;color:#e0535b" id="totalCustDisp">0</span>
               <span style="font-size:13px;color:#999">人</span>
             </div>
+            <div style="padding-top:10px;border-top:1px solid #f0f0f0">
+              <div style="font-size:11px;font-weight:700;color:#888;margin-bottom:8px">📍 集客導線別（新規内訳）</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:#3b82f6;width:52px;flex-shrink:0;font-weight:600">SNS</span>
+                  <input type="number" id="inp-src-sns" min="0" placeholder="0" oninput="markDirty()" style="width:64px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:15px;font-weight:600;text-align:center;outline:none">
+                  <span style="font-size:12px;color:#aaa">人</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:#16a34a;width:52px;flex-shrink:0;font-weight:600">紹介</span>
+                  <input type="number" id="inp-src-ref" min="0" placeholder="0" oninput="markDirty()" style="width:64px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:15px;font-weight:600;text-align:center;outline:none">
+                  <span style="font-size:12px;color:#aaa">人</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:#f59e0b;width:52px;flex-shrink:0;font-weight:600">ミニモ</span>
+                  <input type="number" id="inp-src-mnm" min="0" placeholder="0" oninput="markDirty()" style="width:64px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:15px;font-weight:600;text-align:center;outline:none">
+                  <span style="font-size:12px;color:#aaa">人</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:#ec4899;width:52px;flex-shrink:0;font-weight:600">ネイリー</span>
+                  <input type="number" id="inp-src-nly" min="0" placeholder="0" oninput="markDirty()" style="width:64px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:15px;font-weight:600;text-align:center;outline:none">
+                  <span style="font-size:12px;color:#aaa">人</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:#8b5cf6;width:52px;flex-shrink:0;font-weight:600">モデハン</span>
+                  <input type="number" id="inp-src-mdh" min="0" placeholder="0" oninput="markDirty()" style="width:64px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:15px;font-weight:600;text-align:center;outline:none">
+                  <span style="font-size:12px;color:#aaa">人</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -839,6 +869,11 @@ function loadSales() {
   set('inp-amount',  c.amount      ?? '');
   set('inp-newCust', c.newCustomers  ?? (c.customers ?? ''));
   set('inp-exCust',  c.existingCustomers ?? '');
+  set('inp-src-sns', c.sources?.sns ?? '');
+  set('inp-src-ref', c.sources?.ref ?? '');
+  set('inp-src-mnm', c.sources?.mnm ?? '');
+  set('inp-src-nly', c.sources?.nly ?? '');
+  set('inp-src-mdh', c.sources?.mdh ?? '');
   updateTotalCust();
   isDirty = false;
   renderSalesHistory(s);
@@ -857,14 +892,19 @@ function saveSales() {
   if (!s) return;
   if (!s.sales) s.sales = {};
   const newC = int('inp-newCust'), exC = int('inp-exCust');
+  const sns = int('inp-src-sns'), ref = int('inp-src-ref'), mnm = int('inp-src-mnm'), nly = int('inp-src-nly'), mdh = int('inp-src-mdh');
   s.sales[mKey(currentYear,currentMonth)] = {
     amount: int('inp-amount'),
     newCustomers: newC,
     existingCustomers: exC,
     customers: newC + exC,
+    sources: { sns, ref, mnm, nly, mdh },
   };
   persist(data);
 }
+
+const SRC_LABELS = { sns:'SNS', ref:'紹介', mnm:'ミニモ', nly:'ネイリー', mdh:'モデハン' };
+const SRC_COLORS = { sns:'#3b82f6', ref:'#16a34a', mnm:'#f59e0b', nly:'#ec4899', mdh:'#8b5cf6' };
 
 function renderSalesHistory(s) {
   const el = document.getElementById('salesHistory');
@@ -876,6 +916,10 @@ function renderSalesHistory(s) {
     const exC   = c.existingCustomers != null ? c.existingCustomers : '-';
     const unit  = total > 0 ? Math.round(c.amount / total) : 0;
     const [y,m] = k.split('-');
+    const srcBadges = c.sources ? Object.entries(c.sources)
+      .filter(([,v]) => v > 0)
+      .map(([key,v]) => `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${SRC_COLORS[key]}20;color:${SRC_COLORS[key]};border:1px solid ${SRC_COLORS[key]}40;white-space:nowrap">${SRC_LABELS[key]} ${v}人</span>`)
+      .join(' ') : '-';
     return `<tr>
       <td>${y}年${+m}月</td>
       <td>¥${num(c.amount)}</td>
@@ -883,10 +927,11 @@ function renderSalesHistory(s) {
       <td>${exC === '-' ? '-' : num(exC)}人</td>
       <td class="hi">${num(total)}人</td>
       <td>${unit > 0 ? '¥'+num(unit) : '-'}</td>
+      <td style="min-width:120px">${srcBadges}</td>
     </tr>`;
   }).join('');
   el.innerHTML = `<table><thead><tr>
-    <th>月</th><th>売上</th><th>新規</th><th>既存</th><th>総客数</th><th>客単価</th>
+    <th>月</th><th>売上</th><th>新規</th><th>既存</th><th>総客数</th><th>客単価</th><th>集客導線</th>
   </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
