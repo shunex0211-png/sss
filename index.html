@@ -440,6 +440,11 @@
                   <input type="number" id="inp-src-mdh" min="0" placeholder="0" oninput="markDirty()" style="width:64px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:15px;font-weight:600;text-align:center;outline:none">
                   <span style="font-size:12px;color:#aaa">人</span>
                 </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:12px;color:#e11d48;width:52px;flex-shrink:0;font-weight:600">HPB</span>
+                  <input type="number" id="inp-src-hpb" min="0" placeholder="0" oninput="markDirty()" style="width:64px;border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:15px;font-weight:600;text-align:center;outline:none">
+                  <span style="font-size:12px;color:#aaa">人</span>
+                </div>
               </div>
             </div>
           </div>
@@ -556,6 +561,7 @@
         <option value="ミニモ">ミニモ</option>
         <option value="ネイリー">ネイリー</option>
         <option value="モデハン">モデハン</option>
+        <option value="HPB">HPB</option>
       </select>
     </div>
     <div class="form-section">請求書情報</div>
@@ -795,7 +801,7 @@ function renderList() {
     return;
   }
   el.innerHTML = students.map(s => {
-    const srcColor = {SNS:'#3b82f6',紹介:'#16a34a',ミニモ:'#f59e0b',ネイリー:'#ec4899',モデハン:'#8b5cf6'}[s.source]||'';
+    const srcColor = {SNS:'#3b82f6',紹介:'#16a34a',ミニモ:'#f59e0b',ネイリー:'#ec4899',モデハン:'#8b5cf6',HPB:'#e11d48'}[s.source]||'';
     const srcBadge = s.source ? `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${srcColor}20;color:${srcColor};border:1px solid ${srcColor}40;margin-left:8px">${esc(s.source)}</span>` : '';
     return `
     <div class="student-card" onclick="showDetail('${s.id}')">
@@ -821,7 +827,7 @@ function showDetail(id) {
   document.getElementById('detailContact').textContent = [s.phone,s.email,s.memo].filter(Boolean).join('　');
   const handles = [];
   if (s.source) {
-    const srcColor = {SNS:'#3b82f6',紹介:'#16a34a',ミニモ:'#f59e0b',ネイリー:'#ec4899',モデハン:'#8b5cf6'}[s.source]||'#6b7280';
+    const srcColor = {SNS:'#3b82f6',紹介:'#16a34a',ミニモ:'#f59e0b',ネイリー:'#ec4899',モデハン:'#8b5cf6',HPB:'#e11d48'}[s.source]||'#6b7280';
     handles.push(`<span class="sns-handle" style="background:${srcColor}20;border-color:${srcColor}50;color:${srcColor};font-weight:700">📍 ${esc(s.source)}</span>`);
   }
   if (s.salon)     handles.push(`<span class="sns-handle">🏠 ${esc(s.salon)}</span>`);
@@ -984,6 +990,7 @@ function loadSales() {
   set('inp-src-mnm', c.sources?.mnm ?? '');
   set('inp-src-nly', c.sources?.nly ?? '');
   set('inp-src-mdh', c.sources?.mdh ?? '');
+  set('inp-src-hpb', c.sources?.hpb ?? '');
   updateTotalCust();
   isDirty = false;
   renderSalesHistory(s);
@@ -1002,19 +1009,19 @@ function saveSales() {
   if (!s) return;
   if (!s.sales) s.sales = {};
   const newC = int('inp-newCust'), exC = int('inp-exCust');
-  const sns = int('inp-src-sns'), ref = int('inp-src-ref'), mnm = int('inp-src-mnm'), nly = int('inp-src-nly'), mdh = int('inp-src-mdh');
+  const sns = int('inp-src-sns'), ref = int('inp-src-ref'), mnm = int('inp-src-mnm'), nly = int('inp-src-nly'), mdh = int('inp-src-mdh'), hpb = int('inp-src-hpb');
   s.sales[mKey(currentYear,currentMonth)] = {
     amount: int('inp-amount'),
     newCustomers: newC,
     existingCustomers: exC,
     customers: newC + exC,
-    sources: { sns, ref, mnm, nly, mdh },
+    sources: { sns, ref, mnm, nly, mdh, hpb },
   };
   persist(data);
 }
 
-const SRC_LABELS = { sns:'SNS', ref:'紹介', mnm:'ミニモ', nly:'ネイリー', mdh:'モデハン' };
-const SRC_COLORS = { sns:'#3b82f6', ref:'#16a34a', mnm:'#f59e0b', nly:'#ec4899', mdh:'#8b5cf6' };
+const SRC_LABELS = { sns:'SNS', ref:'紹介', mnm:'ミニモ', nly:'ネイリー', mdh:'モデハン', hpb:'HPB' };
+const SRC_COLORS = { sns:'#3b82f6', ref:'#16a34a', mnm:'#f59e0b', nly:'#ec4899', mdh:'#8b5cf6', hpb:'#e11d48' };
 
 function renderSalesHistory(s) {
   const el = document.getElementById('salesHistory');
