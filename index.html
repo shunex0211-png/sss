@@ -332,23 +332,50 @@
 
     <!-- SNS Tab -->
     <div id="tabSns" class="tab-pane active">
-      <div class="section-label">投稿数</div>
-      <div class="cards-grid g4">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="section-label" style="margin-bottom:0">投稿数</div>
+        <div style="font-size:11px;color:#aaa">目標を入力すると達成率が表示されます</div>
+      </div>
+      <div class="cards-grid g4" style="margin-top:10px">
         <div class="input-card">
           <div class="card-label"><span class="icon c-story">S</span>IGストーリー</div>
-          <div class="count-row"><input type="number" id="inp-story" min="0" placeholder="0" oninput="markDirty()"><span class="unit">投稿</span></div>
+          <div class="count-row"><input type="number" id="inp-story" min="0" placeholder="0" oninput="markDirty();updateGoalProgress()"><span class="unit">投稿</span></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;border-top:1px solid #f5f5f5;padding-top:8px">
+            <span style="font-size:11px;color:#aaa;white-space:nowrap">目標</span>
+            <input type="number" id="goal-story" min="0" placeholder="—" oninput="saveGoals();updateGoalProgress()" style="width:52px;border:1px solid #eee;border-radius:6px;padding:3px 6px;font-size:13px;text-align:center;outline:none;color:#888">
+            <span style="font-size:11px;color:#aaa">投稿</span>
+          </div>
+          <div id="prog-story" style="margin-top:6px"></div>
         </div>
         <div class="input-card">
           <div class="card-label"><span class="icon c-reel">R</span>IGリール</div>
-          <div class="count-row"><input type="number" id="inp-reel" min="0" placeholder="0" oninput="markDirty()"><span class="unit">投稿</span></div>
+          <div class="count-row"><input type="number" id="inp-reel" min="0" placeholder="0" oninput="markDirty();updateGoalProgress()"><span class="unit">投稿</span></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;border-top:1px solid #f5f5f5;padding-top:8px">
+            <span style="font-size:11px;color:#aaa;white-space:nowrap">目標</span>
+            <input type="number" id="goal-reel" min="0" placeholder="—" oninput="saveGoals();updateGoalProgress()" style="width:52px;border:1px solid #eee;border-radius:6px;padding:3px 6px;font-size:13px;text-align:center;outline:none;color:#888">
+            <span style="font-size:11px;color:#aaa">投稿</span>
+          </div>
+          <div id="prog-reel" style="margin-top:6px"></div>
         </div>
         <div class="input-card">
           <div class="card-label"><span class="icon c-feed">F</span>IGフィード</div>
-          <div class="count-row"><input type="number" id="inp-feed" min="0" placeholder="0" oninput="markDirty()"><span class="unit">投稿</span></div>
+          <div class="count-row"><input type="number" id="inp-feed" min="0" placeholder="0" oninput="markDirty();updateGoalProgress()"><span class="unit">投稿</span></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;border-top:1px solid #f5f5f5;padding-top:8px">
+            <span style="font-size:11px;color:#aaa;white-space:nowrap">目標</span>
+            <input type="number" id="goal-feed" min="0" placeholder="—" oninput="saveGoals();updateGoalProgress()" style="width:52px;border:1px solid #eee;border-radius:6px;padding:3px 6px;font-size:13px;text-align:center;outline:none;color:#888">
+            <span style="font-size:11px;color:#aaa">投稿</span>
+          </div>
+          <div id="prog-feed" style="margin-top:6px"></div>
         </div>
         <div class="input-card">
           <div class="card-label"><span class="icon c-tt">T</span>TikTok</div>
-          <div class="count-row"><input type="number" id="inp-tiktok" min="0" placeholder="0" oninput="markDirty()"><span class="unit">投稿</span></div>
+          <div class="count-row"><input type="number" id="inp-tiktok" min="0" placeholder="0" oninput="markDirty();updateGoalProgress()"><span class="unit">投稿</span></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;border-top:1px solid #f5f5f5;padding-top:8px">
+            <span style="font-size:11px;color:#aaa;white-space:nowrap">目標</span>
+            <input type="number" id="goal-tiktok" min="0" placeholder="—" oninput="saveGoals();updateGoalProgress()" style="width:52px;border:1px solid #eee;border-radius:6px;padding:3px 6px;font-size:13px;text-align:center;outline:none;color:#888">
+            <span style="font-size:11px;color:#aaa">投稿</span>
+          </div>
+          <div id="prog-tiktok" style="margin-top:6px"></div>
         </div>
       </div>
       <div class="section-label mt">フォロワー数</div>
@@ -901,10 +928,48 @@ function loadSns() {
   set('inp-igF',   c.igF    ?? ''); set('inp-ttF',   c.ttF    ?? '');
   showGrowth('ig-growth', c.igF, prev.igF);
   showGrowth('tt-growth', c.ttF, prev.ttF);
+  // 目標を読み込む
+  const g = s?.snsGoals || {};
+  set('goal-story',  g.story  ?? '');
+  set('goal-reel',   g.reel   ?? '');
+  set('goal-feed',   g.feed   ?? '');
+  set('goal-tiktok', g.tiktok ?? '');
   isDirty = false;
   renderIgConnect(s);
   renderSnsHistory(s);
-  setTimeout(() => { drawFollowers(s); drawPosts(s); }, 0);
+  setTimeout(() => { drawFollowers(s); drawPosts(s); updateGoalProgress(); }, 0);
+}
+
+function saveGoals() {
+  const data = load();
+  const s = data.students.find(x => x.id === currentId);
+  if (!s) return;
+  s.snsGoals = {
+    story:  parseInt(document.getElementById('goal-story').value)  || 0,
+    reel:   parseInt(document.getElementById('goal-reel').value)   || 0,
+    feed:   parseInt(document.getElementById('goal-feed').value)   || 0,
+    tiktok: parseInt(document.getElementById('goal-tiktok').value) || 0,
+  };
+  persist(data);
+}
+
+function updateGoalProgress() {
+  const metrics = ['story','reel','feed','tiktok'];
+  metrics.forEach(m => {
+    const actual = parseInt(document.getElementById('inp-' + m)?.value) || 0;
+    const goal   = parseInt(document.getElementById('goal-' + m)?.value) || 0;
+    const el = document.getElementById('prog-' + m);
+    if (!el) return;
+    if (!goal) { el.innerHTML = ''; return; }
+    const pct  = Math.min(Math.round(actual / goal * 100), 100);
+    const over = actual >= goal;
+    const color = pct >= 100 ? '#16a34a' : pct >= 60 ? '#f59e0b' : '#e0535b';
+    el.innerHTML = `
+      <div style="background:#f0f0f0;border-radius:4px;height:5px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:4px;transition:width 0.3s"></div>
+      </div>
+      <div style="font-size:11px;color:${color};font-weight:700;margin-top:3px">${over ? '✅' : ''} ${pct}% ${over ? '達成！' : `(${actual}/${goal})`}</div>`;
+  });
 }
 
 function showGrowth(elId, cur, prev) {
