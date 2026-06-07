@@ -283,7 +283,10 @@
   <div class="list-container">
     <div class="list-header">
       <h2>塾生一覧</h2>
-      <button class="btn-primary" onclick="openAddModal()">＋ 塾生を追加</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="fetchAllStudentsIg()" style="background:#1d4ed8;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 全塾生IG一括取得</button>
+        <button class="btn-primary" onclick="openAddModal()">＋ 塾生を追加</button>
+      </div>
     </div>
     <div id="studentList"></div>
   </div>
@@ -778,8 +781,12 @@ function getIgAppId()    { return localStorage.getItem('igAppId') || ''; }
 function saveIgAppId(v)  { localStorage.setItem('igAppId', v); }
 function getIgSecret()   { return localStorage.getItem('igSecret') || ''; }
 function saveIgSecret(v) { localStorage.setItem('igSecret', v); }
-function getIgPageId()   { return localStorage.getItem('igPageId') || ''; }
-function saveIgPageId(v) { localStorage.setItem('igPageId', v); }
+function getIgPageId()    { return localStorage.getItem('igPageId') || ''; }
+function saveIgPageId(v)  { localStorage.setItem('igPageId', v); }
+function getOwnerIgId()   { return localStorage.getItem('ownerIgId') || ''; }
+function saveOwnerIgId(v) { localStorage.setItem('ownerIgId', v); }
+function getOwnerToken()  { return localStorage.getItem('ownerIgToken') || ''; }
+function saveOwnerToken(v){ localStorage.setItem('ownerIgToken', v); }
 
 // ============================================================
 // State
@@ -1816,6 +1823,9 @@ function renderIgConnect(s) {
   const appId = getIgAppId();
   const token = s?.igToken;
 
+  const igAccount = (s?.igAccount || s?.igUser || '').replace('@','');
+  const hasOwner  = !!(getOwnerIgId() && getOwnerToken());
+
   if (token) {
     el.innerHTML = `
       <div style="background:#f0fff4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -1827,13 +1837,23 @@ function renderIgConnect(s) {
         <button onclick="fetchIgData()" style="background:#16a34a;color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 フォロワー数を取得</button>
         <button onclick="disconnectIg()" style="background:none;border:1px solid #ccc;color:#999;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12px">解除</button>
       </div>`;
+  } else if (igAccount && hasOwner) {
+    el.innerHTML = `
+      <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:22px">📊</span>
+        <div style="flex:1;min-width:120px">
+          <div style="font-size:13px;font-weight:600;color:#1d4ed8">自動取得モード</div>
+          <div style="font-size:12px;color:#60a5fa;margin-top:2px">@${esc(igAccount)} • 先生のトークンで取得</div>
+        </div>
+        <button onclick="fetchIgDataByDiscovery('${s.id}')" style="background:#1d4ed8;color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 フォロワー数を取得</button>
+      </div>`;
   } else {
     el.innerHTML = `
       <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 18px">
         <div style="font-size:13px;font-weight:600;color:#c2410c;margin-bottom:4px">📸 Instagram連携</div>
         <div style="font-size:12px;color:#9a3412;line-height:1.7;margin-bottom:12px">
           連携するとフォロワー数を自動取得できます<br>
-          <span style="font-size:11px;color:#b45309">※ Instagramビジネス/クリエイターアカウント＋Facebookページ連携が必要です</span>
+          ${igAccount ? '<span style="font-size:11px;color:#b45309">※ 先生のInstagram取得を先に実行してください</span>' : '<span style="font-size:11px;color:#b45309">※ 編集からInstagramユーザー名を入力してください</span>'}
         </div>
         ${!appId ? '<div style="font-size:12px;color:#ef4444;background:#fff0f0;border-radius:6px;padding:7px 10px;margin-bottom:10px">⚠ 設定（⚙）でInstagram App IDを入力してください</div>' : ''}
         <button onclick="openIgAuthModal()" ${!appId ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : 'style="cursor:pointer;"'}
@@ -2055,6 +2075,10 @@ async function fetchIgData() {
 
     if (!igId) throw new Error('InstagramビジネスアカウントのIDが取得できませんでした。\n\n設定（⚙）の「Facebook Page ID」にFacebookページのIDを入力してください。\nFacebookページ → 「ページについて」→「詳細情報」に記載の数字です。');
 
+    // owner IGIDとトークンを保存（他の塾生のBusiness Discovery取得に使用）
+    saveOwnerIgId(igId);
+    saveOwnerToken(useToken);
+
     // 3. Instagramデータ（フォロワー数）を取得
     const igRes  = await fetch(`https://graph.facebook.com/v18.0/${igId}?fields=followers_count,media_count,username&access_token=${useToken}`);
     const igJson = await igRes.json();
@@ -2097,6 +2121,100 @@ async function fetchIgData() {
     renderIgConnect(upS2);
     alert('❌ データ取得エラー:\n\n' + e.message);
   }
+}
+
+async function fetchIgDataByDiscovery(sid) {
+  const ownerIgId = getOwnerIgId();
+  const ownerToken = getOwnerToken();
+  if (!ownerIgId || !ownerToken) {
+    alert('先生のInstagramが未連携です。\n先生自身のアカウントで「フォロワー数を取得」を先に実行してください。');
+    return;
+  }
+  const data = load();
+  const s = data.students.find(x => x.id === sid);
+  const username = (s?.igAccount || s?.igUser || '').replace('@','');
+  if (!username) { alert('塾生のInstagramユーザー名が未設定です。編集から入力してください。'); return; }
+
+  const el = document.getElementById('igConnectSection');
+  if (el) el.innerHTML = `<div style="padding:14px 18px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:12px;font-size:13px;color:#3b82f6">📊 Instagramデータ取得中...</div>`;
+
+  try {
+    const startOfMonth = new Date(currentYear, currentMonth - 1, 1);
+    const endOfMonth   = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+    const res  = await fetch(`https://graph.facebook.com/v18.0/${ownerIgId}?fields=business_discovery.fields(followers_count,username,media{media_type,timestamp})&username=${username}&access_token=${ownerToken}`);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error.message);
+    if (!json.business_discovery) throw new Error('アカウントが見つかりません。塾生のInstagramがビジネス/クリエイターアカウントである必要があります。');
+    const bd = json.business_discovery;
+    let reelCount = 0, feedCount = 0;
+    for (const item of (bd.media?.data || [])) {
+      const d = new Date(item.timestamp);
+      if (d >= startOfMonth && d <= endOfMonth) {
+        if (item.media_type === 'REELS') reelCount++;
+        else if (['IMAGE','VIDEO','CAROUSEL_ALBUM'].includes(item.media_type)) feedCount++;
+      }
+    }
+    const upd = load();
+    const upS = upd.students.find(x => x.id === sid);
+    if (!upS) return;
+    const key = mKey(currentYear, currentMonth);
+    if (!upS.sns) upS.sns = {};
+    if (!upS.sns[key]) upS.sns[key] = {};
+    upS.sns[key].igF  = bd.followers_count || 0;
+    upS.sns[key].reel = reelCount;
+    upS.sns[key].feed = feedCount;
+    if (bd.username) upS.igUser = bd.username;
+    persist(upd);
+    alert(`✅ 取得成功！\n\n@${bd.username}\nフォロワー: ${(bd.followers_count||0).toLocaleString()}人\nリール: ${reelCount}本\nフィード: ${feedCount}投稿\n\n${currentYear}年${currentMonth}月に反映しました。`);
+    loadSns();
+  } catch(e) {
+    renderIgConnect(load().students.find(x => x.id === sid));
+    alert('❌ 取得エラー:\n\n' + e.message);
+  }
+}
+
+async function fetchAllStudentsIg() {
+  const ownerIgId = getOwnerIgId();
+  const ownerToken = getOwnerToken();
+  if (!ownerIgId || !ownerToken) {
+    alert('先生のInstagramが未連携です。\n先生自身のSNSタブで「フォロワー数を取得」を先に実行してください。');
+    return;
+  }
+  const data = load();
+  const startOfMonth = new Date(currentYear, currentMonth - 1, 1);
+  const endOfMonth   = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+  let success = 0, failed = [];
+  for (const s of data.students) {
+    const username = (s.igAccount || s.igUser || '').replace('@','');
+    if (!username) continue;
+    try {
+      const res  = await fetch(`https://graph.facebook.com/v18.0/${ownerIgId}?fields=business_discovery.fields(followers_count,username,media{media_type,timestamp})&username=${username}&access_token=${ownerToken}`);
+      const json = await res.json();
+      if (json.error || !json.business_discovery) { failed.push(s.name); continue; }
+      const bd = json.business_discovery;
+      let reelCount = 0, feedCount = 0;
+      for (const item of (bd.media?.data || [])) {
+        const d = new Date(item.timestamp);
+        if (d >= startOfMonth && d <= endOfMonth) {
+          if (item.media_type === 'REELS') reelCount++;
+          else if (['IMAGE','VIDEO','CAROUSEL_ALBUM'].includes(item.media_type)) feedCount++;
+        }
+      }
+      const key = mKey(currentYear, currentMonth);
+      if (!s.sns) s.sns = {};
+      if (!s.sns[key]) s.sns[key] = {};
+      s.sns[key].igF  = bd.followers_count || 0;
+      s.sns[key].reel = reelCount;
+      s.sns[key].feed = feedCount;
+      if (bd.username) s.igUser = bd.username;
+      success++;
+    } catch(e) { failed.push(s.name); }
+  }
+  persist(data);
+  let msg = `✅ ${success}名のデータを取得しました。`;
+  if (failed.length) msg += `\n\n⚠ 取得できなかった塾生：\n${failed.join('、')}\n（ビジネス/クリエイターアカウントが必要です）`;
+  alert(msg);
+  renderList();
 }
 
 function disconnectIg() {
