@@ -2012,19 +2012,45 @@ async function fetchIgData() {
 
     // 方法3: /me/accounts でページ一覧から取得
     if (!igId) {
-      const pagesRes  = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${token}`);
-      const pagesJson = await pagesRes.json();
-      if (!pagesJson.error && pagesJson.data?.length) {
-        for (const page of pagesJson.data) {
-          const pgRes  = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
-          const pgJson = await pgRes.json();
-          if (pgJson.instagram_business_account?.id) {
-            igId = pgJson.instagram_business_account.id;
-            useToken = page.access_token;
-            break;
+      try {
+        const pagesRes  = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${token}`);
+        const pagesJson = await pagesRes.json();
+        if (!pagesJson.error && pagesJson.data?.length) {
+          for (const page of pagesJson.data) {
+            const pgRes  = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`);
+            const pgJson = await pgRes.json();
+            if (pgJson.instagram_business_account?.id) {
+              igId = pgJson.instagram_business_account.id;
+              useToken = page.access_token;
+              break;
+            }
           }
         }
-      }
+      } catch(e) {}
+    }
+
+    // 方法4: ビジネスポートフォリオ経由でページを取得
+    if (!igId) {
+      try {
+        const bizRes  = await fetch(`https://graph.facebook.com/v18.0/me/businesses?access_token=${token}`);
+        const bizJson = await bizRes.json();
+        if (!bizJson.error && bizJson.data?.length) {
+          for (const biz of bizJson.data) {
+            const ownedRes  = await fetch(`https://graph.facebook.com/v18.0/${biz.id}/owned_pages?fields=id,name,instagram_business_account,access_token&access_token=${token}`);
+            const ownedJson = await ownedRes.json();
+            if (!ownedJson.error && ownedJson.data?.length) {
+              for (const page of ownedJson.data) {
+                if (page.instagram_business_account?.id) {
+                  igId = page.instagram_business_account.id;
+                  if (page.access_token) useToken = page.access_token;
+                  break;
+                }
+              }
+            }
+            if (igId) break;
+          }
+        }
+      } catch(e) {}
     }
 
     if (!igId) throw new Error('InstagramビジネスアカウントのIDが取得できませんでした。\n\n設定（⚙）の「Facebook Page ID」にFacebookページのIDを入力してください。\nFacebookページ → 「ページについて」→「詳細情報」に記載の数字です。');
