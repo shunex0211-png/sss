@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram連携 - トークン発行</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans JP', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: #fff; border-radius: 20px; padding: 36px 28px; max-width: 440px; width: 100%; box-shadow: 0 6px 24px rgba(0,0,0,0.1); text-align: center; }
+    .icon { font-size: 52px; margin-bottom: 18px; }
+    h1 { font-size: 20px; font-weight: 700; color: #222; margin-bottom: 10px; }
+    p { font-size: 14px; color: #888; line-height: 1.8; margin-bottom: 28px; }
+    .btn-fb { background: #1877f2; color: #fff; border: none; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .btn-fb:hover { background: #1565d8; }
+    .token-label { font-size: 13px; color: #aaa; margin-bottom: 8px; text-align: left; }
+    .token-box { background: #f8f8f8; border: 1px solid #eee; border-radius: 10px; padding: 12px 14px; word-break: break-all; font-size: 11px; color: #555; text-align: left; max-height: 72px; overflow: auto; margin-bottom: 12px; font-family: monospace; }
+    .btn-copy { background: #16a34a; color: #fff; border: none; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; width: 100%; }
+    .btn-copy:hover { background: #15803d; }
+    .note { font-size: 12px; color: #aaa; margin-top: 14px; line-height: 1.7; }
+    .success-title { font-size: 22px; font-weight: 700; color: #16a34a; margin-bottom: 10px; }
+    .copied { background: #15803d !important; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div id="loginView">
+    <div class="icon">📸</div>
+    <h1>Instagram連携トークン発行</h1>
+    <p>Facebookにログインしてトークンを発行します。<br>発行されたトークンを先生にLINEで送ってください。</p>
+    <button class="btn-fb" onclick="startLogin()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      Facebookでログイン
+    </button>
+    <p style="font-size:12px;color:#bbb;margin-top:16px;margin-bottom:0">自分のFacebookアカウントでログインしてください</p>
+  </div>
+
+  <div id="tokenView" style="display:none">
+    <div class="icon">✅</div>
+    <div class="success-title">発行完了！</div>
+    <p>下のトークンをコピーして<br>LINEで先生に送ってください。</p>
+    <div class="token-label">アクセストークン</div>
+    <div class="token-box" id="tokenDisplay"></div>
+    <button class="btn-copy" id="copyBtn" onclick="copyToken()">📋 コピーする</button>
+    <div class="note">
+      ⚠ このトークンは他人に見せないでください<br>
+      コピーしたらLINEで先生に送信してください
+    </div>
+  </div>
+</div>
+
+<script>
+  const APP_ID   = '1703744057742365';
+  const REDIRECT = encodeURIComponent('https://shunex0211-png.github.io/sss/token.html');
+  const SCOPE    = 'instagram_basic,pages_show_list,pages_read_engagement,business_management';
+
+  // OAuthコールバック検出
+  const hash = window.location.hash;
+  if (hash.includes('access_token=')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token  = params.get('access_token');
+    if (token) {
+      window.currentToken = token;
+      document.getElementById('loginView').style.display  = 'none';
+      document.getElementById('tokenView').style.display  = '';
+      document.getElementById('tokenDisplay').textContent = token;
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }
+
+  function startLogin() {
+    const url = `https://www.facebook.com/dialog/oauth?client_id=${APP_ID}&redirect_uri=${REDIRECT}&scope=${SCOPE}&response_type=token&display=page`;
+    window.location.href = url;
+  }
+
+  function copyToken() {
+    navigator.clipboard.writeText(window.currentToken).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '✅ コピーしました！';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = '📋 コピーする'; btn.classList.remove('copied'); }, 2500);
+    });
+  }
+</script>
+</body>
+</html>
