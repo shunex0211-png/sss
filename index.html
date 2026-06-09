@@ -284,7 +284,7 @@
     <div class="list-header">
       <h2>塾生一覧</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="fetchAllStudentsIg()" style="background:#1d4ed8;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 全塾生IG一括取得</button>
+        <button onclick="fetchAllStudentsBySC()" style="background:#15803d;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 全塾生IG一括取得</button>
         <button class="btn-primary" onclick="openAddModal()">＋ 塾生を追加</button>
       </div>
     </div>
@@ -1826,7 +1826,18 @@ function renderIgConnect(s) {
   const igAccount = (s?.igAccount || s?.igUser || '').replace('@','');
   const hasOwner  = !!(getOwnerIgId() && getOwnerToken());
 
-  if (token) {
+  if (igAccount) {
+    // ScrapeCreators APIモード（トークン不要・最優先）
+    el.innerHTML = `
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:22px">📡</span>
+        <div style="flex:1;min-width:120px">
+          <div style="font-size:13px;font-weight:600;color:#15803d">自動取得モード</div>
+          <div style="font-size:12px;color:#4ade80;margin-top:2px">@${esc(igAccount)} • トークン不要</div>
+        </div>
+        <button onclick="fetchIgDataBySC('${s.id}')" style="background:#15803d;color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 フォロワー数を取得</button>
+      </div>`;
+  } else if (token) {
     el.innerHTML = `
       <div style="background:#f0fff4;border:1px solid #bbf7d0;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <span style="font-size:22px">✅</span>
@@ -1837,29 +1848,14 @@ function renderIgConnect(s) {
         <button onclick="fetchIgData()" style="background:#16a34a;color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 フォロワー数を取得</button>
         <button onclick="disconnectIg()" style="background:none;border:1px solid #ccc;color:#999;padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12px">解除</button>
       </div>`;
-  } else if (igAccount && hasOwner) {
-    el.innerHTML = `
-      <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:22px">📊</span>
-        <div style="flex:1;min-width:120px">
-          <div style="font-size:13px;font-weight:600;color:#1d4ed8">自動取得モード</div>
-          <div style="font-size:12px;color:#60a5fa;margin-top:2px">@${esc(igAccount)} • 先生のトークンで取得</div>
-        </div>
-        <button onclick="fetchIgDataByDiscovery('${s.id}')" style="background:#1d4ed8;color:#fff;border:none;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 フォロワー数を取得</button>
-      </div>`;
   } else {
     el.innerHTML = `
       <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 18px">
         <div style="font-size:13px;font-weight:600;color:#c2410c;margin-bottom:4px">📸 Instagram連携</div>
         <div style="font-size:12px;color:#9a3412;line-height:1.7;margin-bottom:12px">
           連携するとフォロワー数を自動取得できます<br>
-          ${igAccount ? '<span style="font-size:11px;color:#b45309">※ 先生のInstagram取得を先に実行してください</span>' : '<span style="font-size:11px;color:#b45309">※ 編集からInstagramユーザー名を入力してください</span>'}
+          <span style="font-size:11px;color:#b45309">※ 編集からInstagramユーザー名を入力してください</span>
         </div>
-        ${!appId ? '<div style="font-size:12px;color:#ef4444;background:#fff0f0;border-radius:6px;padding:7px 10px;margin-bottom:10px">⚠ 設定（⚙）でInstagram App IDを入力してください</div>' : ''}
-        <button onclick="openIgAuthModal()" ${!appId ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : 'style="cursor:pointer;"'}
-          style="background:#e0535b;color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600">
-          📸 Instagramを連携する
-        </button>
       </div>`;
   }
 }
@@ -2213,6 +2209,70 @@ async function fetchAllStudentsIg() {
   persist(data);
   let msg = `✅ ${success}名のデータを取得しました。`;
   if (failed.length) msg += `\n\n⚠ 取得できなかった塾生：\n${failed.join('、')}\n（ビジネス/クリエイターアカウントが必要です）`;
+  alert(msg);
+  renderList();
+}
+
+// ── ScrapeCreators API 経由（ポート8000のダッシュボードをプロキシとして使用）──
+const SC_BASE = 'http://localhost:8000';
+
+async function fetchIgDataBySC(sid) {
+  const data = load();
+  const s = data.students.find(x => x.id === sid);
+  if (!s) return;
+  const username = (s.igAccount || s.igUser || '').replace('@','');
+  if (!username) { alert('Instagramユーザー名が未設定です。\n編集から「Instagramアカウント」を入力してください。'); return; }
+
+  let res, json;
+  try {
+    res  = await fetch(`${SC_BASE}/api/ig_profile?handle=${encodeURIComponent(username)}`);
+    json = await res.json();
+  } catch(e) {
+    alert('❌ ダッシュボードアプリ（localhost:8000）に接続できません。\n「美容師リール伸びてる」アプリを起動してください。');
+    return;
+  }
+  if (!json.ok) { alert(`❌ 取得失敗：${json.error}`); return; }
+
+  const key = mKey(currentYear, currentMonth);
+  if (!s.sns) s.sns = {};
+  if (!s.sns[key]) s.sns[key] = {};
+  s.sns[key].igF   = json.followers || 0;
+  s.sns[key].posts = json.posts || 0;
+  if (json.username) s.igUser = json.username;
+  persist(data);
+
+  alert(`✅ 取得成功！\n\n@${json.username}\nフォロワー: ${(json.followers||0).toLocaleString()}人\n投稿数: ${(json.posts||0).toLocaleString()}件\n\n${currentYear}年${currentMonth}月に反映しました。`);
+  loadSns();
+}
+
+async function fetchAllStudentsBySC() {
+  const data = load();
+  let success = 0, failed = [], skipped = 0;
+  for (const s of data.students) {
+    const username = (s.igAccount || s.igUser || '').replace('@','');
+    if (!username) { skipped++; continue; }
+    try {
+      const res  = await fetch(`${SC_BASE}/api/ig_profile?handle=${encodeURIComponent(username)}`);
+      const json = await res.json();
+      if (!json.ok) { failed.push(s.name + `（${json.error}）`); continue; }
+      const key = mKey(currentYear, currentMonth);
+      if (!s.sns) s.sns = {};
+      if (!s.sns[key]) s.sns[key] = {};
+      s.sns[key].igF   = json.followers || 0;
+      s.sns[key].posts = json.posts || 0;
+      if (json.username) s.igUser = json.username;
+      success++;
+      // APIレート制限対策：1秒間隔
+      await new Promise(r => setTimeout(r, 1000));
+    } catch(e) {
+      alert('❌ ダッシュボードアプリ（localhost:8000）に接続できません。\n「美容師リール伸びてる」アプリを起動してください。');
+      return;
+    }
+  }
+  persist(data);
+  let msg = `✅ ${success}名のInstagramデータを取得しました。`;
+  if (skipped) msg += `\n（${skipped}名はIGアカウント未設定のためスキップ）`;
+  if (failed.length) msg += `\n\n⚠ 取得できなかった塾生：\n${failed.join('\n')}`;
   alert(msg);
   renderList();
 }
