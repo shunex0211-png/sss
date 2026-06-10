@@ -4,6 +4,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>美容師塾 塾生管理</title>
+  <script>
+  // ── 一時マイグレーション: 益子 2026-05 売上反映 ──
+  (function() {
+    if (localStorage.getItem('_migrated_masuko_202605')) return;
+    const raw = localStorage.getItem('beauty_school_data');
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      const s = data.students.find(s => s.name && s.name.includes('益子'));
+      if (!s) return;
+      if (!s.sales) s.sales = {};
+      s.sales['2026-05'] = {
+        amount: 601420,
+        newCustomers: 0,
+        existingCustomers: 47,
+        customers: 47,
+        sources: { sns: 0, ref: 0, mnm: 0, nly: 0, mdh: 0, hpb: 0 }
+      };
+      localStorage.setItem('beauty_school_data', JSON.stringify(data));
+      localStorage.setItem('_migrated_masuko_202605', '1');
+      console.log('✅ 益子さんの2026年5月売上を自動反映しました');
+    } catch(e) { console.error('マイグレーションエラー:', e); }
+  })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
