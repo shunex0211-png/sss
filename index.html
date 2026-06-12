@@ -385,7 +385,7 @@
           <div id="prog-reel" style="margin-top:6px"></div>
         </div>
         <div class="input-card">
-          <div class="card-label"><span class="icon c-feed">F</span>IGフィード</div>
+          <div class="card-label"><span class="icon c-feed">C</span>IGカルーセル</div>
           <div class="count-row"><input type="number" id="inp-feed" min="0" placeholder="0" oninput="markDirty();updateGoalProgress()"><span class="unit">投稿</span></div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:8px;border-top:1px solid #f5f5f5;padding-top:8px">
             <span style="font-size:11px;color:#aaa;white-space:nowrap">目標</span>
@@ -434,6 +434,13 @@
           <button id="btn-posts" onclick="toggleChart('posts')" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid #ddd;background:#f8f8f8;cursor:pointer;color:#666">📈 折れ線</button>
         </div>
         <div class="chart-wrap"><canvas id="chartPosts"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h3 style="margin:0">🎬 リール・カルーセル推移</h3>
+          <button id="btn-rc" onclick="toggleChart('rc')" style="font-size:11px;padding:3px 10px;border-radius:12px;border:1px solid #ddd;background:#f8f8f8;cursor:pointer;color:#666">📈 折れ線</button>
+        </div>
+        <div class="chart-wrap"><canvas id="chartRc"></canvas></div>
       </div>
       <div class="history-card">
         <h3>SNS履歴</h3>
@@ -822,7 +829,7 @@ let currentTab   = 'sns';
 let isDirty      = false;
 let editingId    = null;
 let charts       = {};
-const chartTypes = { followers: 'line', posts: 'bar', sales: 'bar', customers: 'bar' };
+const chartTypes = { followers: 'line', posts: 'bar', rc: 'bar', sales: 'bar', customers: 'bar' };
 
 function toggleChart(name) {
   chartTypes[name] = chartTypes[name] === 'bar' ? 'line' : 'bar';
@@ -833,6 +840,7 @@ function toggleChart(name) {
   if (!s) return;
   if      (name === 'followers') drawFollowers(s);
   else if (name === 'posts')     drawPosts(s);
+  else if (name === 'rc')        drawReelCarousel(s);
   else if (name === 'sales')     drawSales(s);
   else if (name === 'customers') drawCustomers(s);
 }
@@ -968,7 +976,7 @@ function loadSns() {
   isDirty = false;
   renderIgConnect(s);
   renderSnsHistory(s);
-  setTimeout(() => { drawFollowers(s); drawPosts(s); updateGoalProgress(); }, 0);
+  setTimeout(() => { drawFollowers(s); drawPosts(s); drawReelCarousel(s); updateGoalProgress(); }, 0);
 }
 
 function saveGoals() {
@@ -1031,7 +1039,7 @@ function renderSnsHistory(s) {
     const [y,m] = k.split('-');
     return `<tr><td>${y}年${+m}月</td><td>${c.story||0}</td><td>${c.reel||0}</td><td>${c.feed||0}</td><td>${c.tiktok||0}</td><td class="hi">${total}</td><td>${num(c.igF)}</td><td>${num(c.ttF)}</td></tr>`;
   }).join('');
-  el.innerHTML = `<table><thead><tr><th>月</th><th>ストーリー</th><th>リール</th><th>フィード</th><th>TikTok</th><th>投稿計</th><th>IGフォロワー</th><th>TTフォロワー</th></tr></thead><tbody>${rows}</tbody></table>`;
+  el.innerHTML = `<table><thead><tr><th>月</th><th>ストーリー</th><th>リール</th><th>カルーセル</th><th>TikTok</th><th>投稿計</th><th>IGフォロワー</th><th>TTフォロワー</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function drawFollowers(s) {
@@ -1061,10 +1069,61 @@ function drawPosts(s) {
     data: { labels: keys.map(monthLabel), datasets: [
       { label: 'ストーリー', data: keys.map(k=>s.sns[k].story||0),  backgroundColor: pType==='line'?'rgba(240,148,51,0.1)':'#f09433',  borderColor:'#f09433', tension:0.35, fill:false, pointRadius:3 },
       { label: 'リール',     data: keys.map(k=>s.sns[k].reel||0),   backgroundColor: pType==='line'?'rgba(193,53,132,0.1)':'#c13584',  borderColor:'#c13584', tension:0.35, fill:false, pointRadius:3 },
-      { label: 'フィード',   data: keys.map(k=>s.sns[k].feed||0),   backgroundColor: pType==='line'?'rgba(131,58,180,0.1)':'#833ab4',  borderColor:'#833ab4', tension:0.35, fill:false, pointRadius:3 },
+      { label: 'カルーセル', data: keys.map(k=>s.sns[k].feed||0),   backgroundColor: pType==='line'?'rgba(131,58,180,0.1)':'#833ab4',  borderColor:'#833ab4', tension:0.35, fill:false, pointRadius:3 },
       { label: 'TikTok',     data: keys.map(k=>s.sns[k].tiktok||0), backgroundColor: pType==='line'?'rgba(85,85,85,0.1)':'#555',       borderColor:'#555',    tension:0.35, fill:false, pointRadius:3 },
     ]},
     options: chartOpts('投稿')
+  });
+}
+
+function drawReelCarousel(s) {
+  if (!s?.sns) return;
+  const keys = Object.keys(s.sns).sort().slice(-12);
+  if (!keys.length) return;
+  const ctx   = document.getElementById('chartRc').getContext('2d');
+  const rType = chartTypes.rc || 'bar';
+  const reelData     = keys.map(k => s.sns[k].reel || 0);
+  const carouselData = keys.map(k => s.sns[k].feed || 0);
+  charts.rc = new Chart(ctx, {
+    type: rType,
+    data: {
+      labels: keys.map(monthLabel),
+      datasets: [
+        {
+          label: '🎬 リール',
+          data: reelData,
+          backgroundColor: rType==='line' ? 'rgba(193,53,132,0.12)' : 'rgba(193,53,132,0.75)',
+          borderColor: '#c13584',
+          borderWidth: rType==='line' ? 2 : 0,
+          borderRadius: rType==='bar' ? 6 : 0,
+          tension: 0.35, fill: rType==='line', pointRadius: 4,
+        },
+        {
+          label: '🖼 カルーセル',
+          data: carouselData,
+          backgroundColor: rType==='line' ? 'rgba(131,58,180,0.12)' : 'rgba(131,58,180,0.75)',
+          borderColor: '#833ab4',
+          borderWidth: rType==='line' ? 2 : 0,
+          borderRadius: rType==='bar' ? 6 : 0,
+          tension: 0.35, fill: rType==='line', pointRadius: 4,
+        },
+      ],
+    },
+    options: {
+      ...chartOpts('投稿'),
+      plugins: {
+        ...chartOpts('投稿').plugins,
+        legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            footer: (items) => {
+              const total = items.reduce((s, i) => s + i.raw, 0);
+              return `合計: ${total}投稿`;
+            }
+          }
+        }
+      },
+    },
   });
 }
 
@@ -1622,7 +1681,7 @@ ${mtgLines}
 ■ Instagram（美容師クリエイター平均）
 - フォロワー月間成長率: 良好3〜8%／優秀8%以上
 - リール投稿: 推奨週3〜5本
-- フィード投稿: 推奨週2〜3本
+- カルーセル投稿: 推奨週2〜3本
 - エンゲージメント率（1万人以下）: 平均4〜8%
 
 ■ TikTok（美容師クリエイター平均）
@@ -2133,7 +2192,7 @@ async function fetchIgData() {
     if (igJson.username) upS.igUser = igJson.username;
     persist(upd);
 
-    alert(`✅ 取得成功！\n\n@${igJson.username || ''}\nフォロワー: ${(igJson.followers_count||0).toLocaleString()}人\nリール: ${reelCount}本\nフィード: ${feedCount}投稿\n※ストーリーは手動入力してください\n\n${currentYear}年${currentMonth}月に反映しました。`);
+    alert(`✅ 取得成功！\n\n@${igJson.username || ''}\nフォロワー: ${(igJson.followers_count||0).toLocaleString()}人\nリール: ${reelCount}本\nカルーセル: ${feedCount}投稿\n※ストーリーは手動入力してください\n\n${currentYear}年${currentMonth}月に反映しました。`);
     loadSns();
 
   } catch(e) {
@@ -2185,7 +2244,7 @@ async function fetchIgDataByDiscovery(sid) {
     upS.sns[key].feed = feedCount;
     if (bd.username) upS.igUser = bd.username;
     persist(upd);
-    alert(`✅ 取得成功！\n\n@${bd.username}\nフォロワー: ${(bd.followers_count||0).toLocaleString()}人\nリール: ${reelCount}本\nフィード: ${feedCount}投稿\n\n${currentYear}年${currentMonth}月に反映しました。`);
+    alert(`✅ 取得成功！\n\n@${bd.username}\nフォロワー: ${(bd.followers_count||0).toLocaleString()}人\nリール: ${reelCount}本\nカルーセル: ${feedCount}投稿\n\n${currentYear}年${currentMonth}月に反映しました。`);
     loadSns();
   } catch(e) {
     renderIgConnect(load().students.find(x => x.id === sid));
