@@ -1601,59 +1601,105 @@ function buildSystem(s) {
   const today = new Date();
   const ym = `${today.getFullYear()}年${today.getMonth()+1}月`;
 
-  // SNS data (last 6 months) with growth calc
-  const snsKeys = Object.keys(s.sns || {}).sort().slice(-6);
-  const snsLines = snsKeys.length
-    ? snsKeys.map((k, i) => {
-        const c = s.sns[k];
-        const prev = i > 0 ? s.sns[snsKeys[i-1]] : null;
-        const [y,m] = k.split('-');
-        const igGrowth = prev && prev.igF > 0 ? `(${((c.igF-prev.igF)/prev.igF*100).toFixed(1)}%増減)` : '';
-        const ttGrowth = prev && prev.ttF > 0 ? `(${((c.ttF-prev.ttF)/prev.ttF*100).toFixed(1)}%増減)` : '';
-        return `${y}年${+m}月: IG投稿[S:${c.story||0}/R:${c.reel||0}/F:${c.feed||0}] TT投稿:${c.tiktok||0} IGフォロワー:${num(c.igF)}人${igGrowth} TTフォロワー:${num(c.ttF)}人${ttGrowth}`;
-      }).join('\n')
-    : 'データなし';
+  // ── SNS データ（直近6ヶ月）詳細計算 ──
+  const allSnsKeys = Object.keys(s.sns || {}).sort();
+  const snsKeys = allSnsKeys.slice(-6);
+  const goals = s.snsGoals || {};
 
-  // Best performing months analysis
-  let bestIgGrowth = '', bestTtGrowth = '';
+  const snsLines = snsKeys.length ? snsKeys.map((k, i) => {
+    const c = s.sns[k];
+    const prev = i > 0 ? s.sns[snsKeys[i-1]] : (allSnsKeys.length > snsKeys.length ? s.sns[allSnsKeys[allSnsKeys.indexOf(k)-1]] : null);
+    const [y, mo] = k.split('-');
+    const reel = c.reel || 0, carousel = c.feed || 0, story = c.story || 0, tiktok = c.tiktok || 0;
+    const totalIgPost = reel + carousel;
+    const reelRatio = totalIgPost > 0 ? Math.round(reel / totalIgPost * 100) : 0;
+    const weeklyReel = (reel / 4.3).toFixed(1);
+    const weeklyCarousel = (carousel / 4.3).toFixed(1);
+    // フォロワー成長
+    const igF = c.igF || 0, prevIgF = prev?.igF || 0;
+    const igDiff = prevIgF > 0 ? igF - prevIgF : null;
+    const igRate = prevIgF > 0 ? ((igF - prevIgF) / prevIgF * 100).toFixed(1) : null;
+    const igGrowthStr = igDiff !== null ? ` → 前月比${igDiff >= 0 ? '+' : ''}${igDiff.toLocaleString()}人 (${igRate}%)` : '';
+    const ttF = c.ttF || 0, prevTtF = prev?.ttF || 0;
+    const ttDiff = prevTtF > 0 ? ttF - prevTtF : null;
+    const ttRate = prevTtF > 0 ? ((ttF - prevTtF) / prevTtF * 100).toFixed(1) : null;
+    const ttGrowthStr = ttDiff !== null ? ` → 前月比${ttDiff >= 0 ? '+' : ''}${ttDiff.toLocaleString()}人 (${ttRate}%)` : '';
+    return `${y}年${+mo}月:
+  IG投稿: リール${reel}本(週${weeklyReel}本) / カルーセル${carousel}本(週${weeklyCarousel}本) / ストーリー${story}本 | リール比率${reelRatio}%
+  TikTok: ${tiktok}本(週${(tiktok/4.3).toFixed(1)}本)
+  IGフォロワー: ${igF.toLocaleString()}人${igGrowthStr}
+  TTフォロワー: ${ttF.toLocaleString()}人${ttGrowthStr}`;
+  }).join('\n') : 'データなし';
+
+  // ── 成長ベスト月・最多投稿月の相関 ──
+  let bestIgGrowthLine = '', worstIgGrowthLine = '', reelCorrelation = '';
   if (snsKeys.length >= 2) {
-    let maxIg = -Infinity, maxTt = -Infinity, bestIgMonth = '', bestTtMonth = '';
+    const growthData = [];
     for (let i = 1; i < snsKeys.length; i++) {
-      const c = s.sns[snsKeys[i]], p = s.sns[snsKeys[i-1]];
-      const igD = (c.igF||0) - (p.igF||0);
-      const ttD = (c.ttF||0) - (p.ttF||0);
-      if (igD > maxIg) { maxIg = igD; bestIgMonth = snsKeys[i]; }
-      if (ttD > maxTt) { maxTt = ttD; bestTtMonth = snsKeys[i]; }
+      const k = snsKeys[i], p = snsKeys[i-1];
+      const c = s.sns[k], prev = s.sns[p];
+      const igD = (c.igF||0) - (prev.igF||0);
+      const reel = c.reel||0, carousel = c.feed||0;
+      const total = reel + carousel;
+      const reelRatio = total > 0 ? Math.round(reel/total*100) : 0;
+      growthData.push({ k, igD, reel, carousel, total, reelRatio });
     }
-    if (bestIgMonth) {
-      const [y,m] = bestIgMonth.split('-');
-      const c = s.sns[bestIgMonth];
-      bestIgGrowth = `IGフォロワーが最も増えた月: ${y}年${+m}月(+${maxIg}人) その月の投稿[S:${c.story||0}/R:${c.reel||0}/F:${c.feed||0}]`;
+    growthData.sort((a,b) => b.igD - a.igD);
+    const best = growthData[0], worst = growthData[growthData.length-1];
+    if (best) {
+      const [y,mo] = best.k.split('-');
+      bestIgGrowthLine = `フォロワー最大増加月: ${y}年${+mo}月 (+${best.igD.toLocaleString()}人) — リール${best.reel}本・カルーセル${best.carousel}本・リール比率${best.reelRatio}%`;
     }
-    if (bestTtMonth) {
-      const [y,m] = bestTtMonth.split('-');
-      const c = s.sns[bestTtMonth];
-      bestTtGrowth = `TTフォロワーが最も増えた月: ${y}年${+m}月(+${maxTt}人) その月のTT投稿:${c.tiktok||0}本`;
+    if (worst && worst.k !== best?.k) {
+      const [y,mo] = worst.k.split('-');
+      worstIgGrowthLine = `フォロワー最小増加月: ${y}年${+mo}月 (${worst.igD >= 0 ? '+' : ''}${worst.igD.toLocaleString()}人) — リール${worst.reel}本・カルーセル${worst.carousel}本・リール比率${worst.reelRatio}%`;
+    }
+    // リール本数と成長の相関コメント
+    const sortedByReel = [...growthData].sort((a,b) => b.reel - a.reel);
+    if (sortedByReel.length >= 2) {
+      const highReel = sortedByReel[0], lowReel = sortedByReel[sortedByReel.length-1];
+      reelCorrelation = `リール多投月(${highReel.reel}本)の成長: +${highReel.igD.toLocaleString()}人 vs リール少投月(${lowReel.reel}本)の成長: ${lowReel.igD >= 0 ? '+' : ''}${lowReel.igD.toLocaleString()}人`;
     }
   }
 
-  // Sales data
-  const salesKeys = Object.keys(s.sales || {}).sort().slice(-6);
-  const salesLines = salesKeys.length
-    ? salesKeys.map(k => {
-        const c = s.sales[k], [y,m] = k.split('-');
-        const unit = c.customers > 0 ? Math.round(c.amount/c.customers) : 0;
-        return `${y}年${+m}月: 売上¥${num(c.amount)} 客数${c.customers||0}人 客単価¥${num(unit)}`;
-      }).join('\n')
-    : 'データなし';
+  // ── 目標達成率 ──
+  const curKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const curSns = s.sns?.[curKey] || {};
+  let goalLines = '';
+  if (goals.reel || goals.feed || goals.story || goals.tiktok) {
+    const gr = goals.reel || 0, gf = goals.feed || 0, gs = goals.story || 0, gt = goals.tiktok || 0;
+    const cr = curSns.reel||0, cf = curSns.feed||0, cs = curSns.story||0, ct = curSns.tiktok||0;
+    const pct = (a, g) => g > 0 ? `${Math.round(a/g*100)}%達成(${a}/${g}本)` : `${a}本(目標未設定)`;
+    goalLines = `今月(${ym})の目標進捗:
+  リール: ${pct(cr, gr)} / カルーセル: ${pct(cf, gf)} / ストーリー: ${pct(cs, gs)} / TikTok: ${pct(ct, gt)}`;
+  }
 
-  // MTG notes
+  // ── 売上データ ──
+  const salesKeys = Object.keys(s.sales || {}).sort().slice(-6);
+  const salesLines = salesKeys.length ? salesKeys.map(k => {
+    const c = s.sales[k], [y,mo] = k.split('-');
+    const unit = c.customers > 0 ? Math.round(c.amount / c.customers) : 0;
+    const src = c.sources ? Object.entries(c.sources).filter(([,v])=>v>0).map(([k,v])=>`${k}:${v}人`).join('/') : '';
+    return `${y}年${+mo}月: 売上¥${num(c.amount)} 客数${c.customers||0}人(新規${c.newCustomers||0}人) 客単価¥${num(unit)}${src ? ' 集客源['+src+']' : ''}`;
+  }).join('\n') : 'データなし';
+
+  // ── SNS→売上 相関 ──
+  let snsToSalesCorr = '';
+  const commonKeys = snsKeys.filter(k => s.sales?.[k]);
+  if (commonKeys.length >= 2) {
+    const maxFollowers = commonKeys.reduce((a, k) => (s.sns[k].igF||0) > (s.sns[a].igF||0) ? k : a);
+    const maxSales = commonKeys.reduce((a, k) => (s.sales[k].amount||0) > (s.sales[a].amount||0) ? k : a);
+    const [fy, fm] = maxFollowers.split('-'), [sy, sm] = maxSales.split('-');
+    snsToSalesCorr = `フォロワー最多月: ${fy}年${+fm}月(${(s.sns[maxFollowers].igF||0).toLocaleString()}人) / 売上最高月: ${sy}年${+sm}月(¥${num(s.sales[maxSales].amount)})`;
+  }
+
+  // ── MTG ──
   const mtgKeys = Object.keys(s.mtg || {}).sort().slice(-3);
   const mtgLines = mtgKeys.length
-    ? mtgKeys.map(k => { const [y,m] = k.split('-'); return `${y}年${+m}月: ${s.mtg[k].content||''}`; }).join('\n')
+    ? mtgKeys.map(k => { const [y,mo] = k.split('-'); return `${y}年${+mo}月: ${s.mtg[k].content||''}`; }).join('\n')
     : 'なし';
 
-  return `あなたは美容師・美容クリエイター専門のSNSコンサルタントです。現在は${ym}です。
+  return `あなたは美容師・美容クリエイター専門のSNS成長コンサルタントです。現在は${ym}です。
 
 このチャットは「壁打ち形式」で進めてください。
 一方的にアドバイスするのではなく、質問と回答を重ねながら分析の精度を高めていきます。
@@ -1661,49 +1707,55 @@ function buildSystem(s) {
 ━━━ 塾生プロフィール ━━━
 氏名: ${s.name}
 サロン: ${s.salon || '未設定'}
-Instagram: ${s.igAccount || '未設定'} / TikTok: ${s.ttAccount || '未設定'}
+Instagram: @${s.igAccount || s.igUser || '未設定'} / TikTok: ${s.ttAccount || '未設定'}
 得意技術: ${s.specialty || '未設定'}
 ターゲット: ${s.target || '未設定'}
 発信の強み: ${s.strength || '未設定'}
+メモ: ${s.memo || 'なし'}
 
-━━━ SNSデータ（直近6ヶ月） ━━━
+━━━ SNSデータ詳細（直近6ヶ月） ━━━
 ${snsLines}
-最高成長月(IG): ${bestIgGrowth || 'データ不足'}
-最高成長月(TT): ${bestTtGrowth || 'データ不足'}
 
-━━━ 売上・客数 ━━━
+━━━ 成長パターン分析 ━━━
+${bestIgGrowthLine || 'データ不足'}
+${worstIgGrowthLine || ''}
+リール投稿量と成長の相関: ${reelCorrelation || 'データ不足'}
+${goalLines ? '\n━━━ 今月の目標進捗 ━━━\n' + goalLines : ''}
+
+━━━ 売上・客数（直近6ヶ月） ━━━
 ${salesLines}
+${snsToSalesCorr ? 'SNS×売上相関: ' + snsToSalesCorr : ''}
 
-━━━ MTG内容 ━━━
+━━━ MTGメモ（直近3ヶ月） ━━━
 ${mtgLines}
 
-━━━ 業界ベンチマーク（比較基準） ━━━
-■ Instagram（美容師クリエイター平均）
-- フォロワー月間成長率: 良好3〜8%／優秀8%以上
-- リール投稿: 推奨週3〜5本
-- カルーセル投稿: 推奨週2〜3本
-- エンゲージメント率（1万人以下）: 平均4〜8%
+━━━ 業界ベンチマーク ━━━
+■ Instagram（美容師クリエイター）
+- フォロワー月間成長率: 良好3〜8% / 優秀8%以上 / 停滞2%未満
+- リール: 推奨週3〜5本（週4本以上で急成長事例多数）
+- カルーセル: 推奨週2〜3本（保存率が高くアルゴリズム優遇）
+- リール:カルーセル比率: 伸びているアカウントは概ね6:4〜7:3
+- 1万フォロワー以下のエンゲージメント率: 平均4〜8%
 
-■ TikTok（美容師クリエイター平均）
-- フォロワー月間成長率: 成長期15〜50%／安定期5〜15%
-- 動画投稿: 最低週3本・推奨週5〜7本
-- 視聴完了率: 30〜50%が目標
+■ TikTok（美容師クリエイター）
+- フォロワー月間成長率: 成長期15〜50% / 安定期5〜15%
+- 投稿頻度: 最低週3本・推奨週5〜7本（毎日投稿が最強）
 
-■ SNS→集客転換（業界平均）
-- フォロワー1万人で月5〜15人の新規来店
-- プロフィールに予約導線があると転換率2〜3倍
+■ SNS→集客転換
+- フォロワー1万人で月5〜15人の新規来店（予約導線があると2〜3倍）
+- リールからの新規来店: フォロワー外リーチが主体
 
-━━━ 進め方 ━━━
-「分析を開始してください。」と言われたら、まず以下を行ってください：
+━━━ 分析指示 ━━━
+「分析を開始してください。」と言われたら、以下の順で進めてください：
 
-1. **ベンチマーク比較** — データを業界平均と比較し、この人が「上回っている点」「下回っている点」を明確に示す
-2. **勝ちパターンの特定** — フォロワーが最も伸びた月に何をしていたか分析
-3. **現在のトレンド** — ${ym}の美容師SNSで伸びているコンテンツ傾向・フォーマット・音源を具体的に
-4. **質問（2〜3個）** — より精度の高い戦略を立てるために、この人の状況をさらに深掘りする質問をする
-   （例: どんな投稿が一番反応があったか、投稿にかけられる時間、過去にバズった経験はあるか、など）
+1. **数値サマリー** — 現在のフォロワー数・成長率・週あたり投稿頻度を業界平均と比較し、端的に「強み/課題」を2〜3点で示す
+2. **コンテンツ戦略の診断** — リール本数・カルーセル本数・比率のデータをもとに、「何が効いているか」「何が足りないか」を具体的に分析する（「リールを増やせ」などの一般論ではなく、この人の数値から読み解く）
+3. **勝ちパターンの特定** — フォロワーが最も伸びた月のリール/カルーセル比率・本数・投稿頻度から、この人固有の「勝ちパターン」を導く
+4. **SNS×売上の連動分析** — フォロワー推移と売上・客数の連動パターンを読み、「SNSが集客に効いている月の特徴」を提示する
+5. **今月の具体アクション** — 目標進捗をもとに、残り日数でできる具体的なコンテンツ提案（テーマ・タイトル案・フォーマット）を3本以上
+6. **深掘り質問（2個）** — さらに精度を上げるため、この人の状況に特化した質問をする
 
-その後の会話では、回答をもとにInstagram・TikTokそれぞれの具体的な投稿テーマ・タイトル・戦略を提案してください。
-**常にこの人の得意技術・ターゲット・強みに特化した提案をすること。一般論は不要。**`;
+**重要: この人の得意技術「${s.specialty || '未設定'}」・ターゲット「${s.target || '未設定'}」・強み「${s.strength || '未設定'}」に完全特化すること。一般論・他の美容師向けの提案は不要。**`;
 }
 
 
