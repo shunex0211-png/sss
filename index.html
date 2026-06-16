@@ -2363,11 +2363,17 @@ async function scFetchOne(username, year, month) {
   if (!profileJson.ok) throw new Error(`プロフィール取得失敗: ${profileJson.error}`);
 
   // リール/カルーセル取得（月別）
-  let postsJson = { reel: 0, carousel: 0, feed: 0 };
+  let postsJson = { reel: 0, carousel: 0, feed: 0, _error: null };
   try {
-    const postsRes = await fetch(`${SC_BASE}/api/ig_posts?handle=${encodeURIComponent(username)}&year=${year}&month=${month}`);
+    const postsUrl = `${SC_BASE}/api/ig_posts?handle=${encodeURIComponent(username)}&year=${year}&month=${month}`;
+    console.log('[SC] ig_posts URL:', postsUrl);
+    const postsRes = await fetch(postsUrl);
     postsJson = await postsRes.json();
-  } catch(e) { /* 投稿数が取れなくてもフォロワーは保存 */ }
+    console.log('[SC] ig_posts result:', postsJson);
+  } catch(e) {
+    console.warn('[SC] ig_posts fetch failed:', e);
+    postsJson._error = e.message;
+  }
 
   return { profileJson, postsJson };
 }
@@ -2397,7 +2403,10 @@ async function fetchIgDataBySC(sid) {
   if (profileJson.username) s.igUser = profileJson.username;
   persist(data);
 
-  alert(`✅ 取得成功！\n\n@${profileJson.username}\nフォロワー: ${(profileJson.followers||0).toLocaleString()}人\nリール: ${postsJson.reel}本\nカルーセル: ${postsJson.carousel}本\n\n${currentYear}年${currentMonth}月に反映しました。`);
+  const postsNote = postsJson._error
+    ? `\n⚠ 投稿数取得エラー: ${postsJson._error}`
+    : `\nリール: ${postsJson.reel}本 / カルーセル: ${postsJson.carousel}本`;
+  alert(`✅ 取得成功！\n\n@${profileJson.username}\nフォロワー: ${(profileJson.followers||0).toLocaleString()}人${postsNote}\n\n${currentYear}年${currentMonth}月に反映しました。`);
   loadSns();
 }
 
