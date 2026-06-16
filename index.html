@@ -2616,6 +2616,23 @@ function renderStudentInvoiceTab(sid) {
       <div style="font-size:12px;color:#aaa;margin-top:2px">税抜 ¥${fmtMoney(fee)} + 消費税${taxRate}%</div>
       ${!fee ? '<div style="font-size:12px;color:#f59e0b;margin-top:6px">⚠ 受講料が未設定です。編集から設定してください。</div>' : ''}
     </div>
+    <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:10px">📋 請求先情報（請求書に印字されます）</div>
+      <div style="display:grid;gap:10px">
+        <div>
+          <label style="font-size:11px;color:#999;display:block;margin-bottom:4px">住所</label>
+          <input type="text" id="inv-student-addr" value="${esc(s.addr||'')}" placeholder="例：大阪府〇〇市〇〇1-2-3"
+            style="width:100%;border:1px solid #ddd;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;font-family:inherit"
+            oninput="saveInvStudentInfo('${sid}')">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#999;display:block;margin-bottom:4px">電話番号</label>
+          <input type="text" id="inv-student-phone" value="${esc(s.phone||'')}" placeholder="例：090-0000-0000"
+            style="width:100%;border:1px solid #ddd;border-radius:8px;padding:9px 12px;font-size:14px;outline:none;font-family:inherit"
+            oninput="saveInvStudentInfo('${sid}')">
+        </div>
+      </div>
+    </div>
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="font-size:12px;color:#888;border-bottom:1px solid #eee">
         <th style="padding:6px 8px;text-align:left">月</th>
@@ -2626,6 +2643,17 @@ function renderStudentInvoiceTab(sid) {
       </tr></thead>
       <tbody style="font-size:13px">${rows}</tbody>
     </table>`;
+}
+
+function saveInvStudentInfo(sid) {
+  const data = load();
+  const s = data.students.find(x => x.id === sid);
+  if (!s) return;
+  const addrEl  = document.getElementById('inv-student-addr');
+  const phoneEl = document.getElementById('inv-student-phone');
+  if (addrEl)  s.addr  = addrEl.value.trim();
+  if (phoneEl) s.phone = phoneEl.value.trim();
+  persist(data);
 }
 
 function ensureInv(sid, ym) {
@@ -2702,7 +2730,8 @@ function previewInv(sid, ym) {
 <div class="inv-doc-title">請　求　書</div>
 <div class="inv-doc-meta">
   <div>
-    <div style="font-size:11px;color:#444;line-height:1.8;margin-bottom:4px">${esc(s.addr||'')}</div>
+    ${s.addr ? `<div style="font-size:11px;color:#444;line-height:1.8">${esc(s.addr)}</div>` : ''}
+    ${s.phone ? `<div style="font-size:11px;color:#444;line-height:1.8;margin-bottom:4px">TEL：${esc(s.phone)}</div>` : ''}
     <div class="inv-to-name">${esc(s.name)}　様</div>
     <div style="margin-top:6px;font-size:12px">件名：<span style="border-bottom:1px solid #888;padding-bottom:1px">${subject}</span></div>
   </div>
