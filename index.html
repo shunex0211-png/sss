@@ -2351,6 +2351,27 @@ async function fetchAllStudentsIg() {
 // ── ScrapeCreators API 経由（ポート8000のダッシュボードをプロキシとして使用）──
 const SC_BASE = 'http://localhost:8000';
 
+// SC APIで1塾生のIG全データ（フォロワー＋リール＋カルーセル）を取得
+async function scFetchOne(username, year, month) {
+  const connErr = '❌ ダッシュボードアプリ（localhost:8000）に接続できません。\n「美容師リール伸びてる」アプリを起動してください。';
+  // フォロワー取得
+  let profileRes, profileJson;
+  try {
+    profileRes  = await fetch(`${SC_BASE}/api/ig_profile?handle=${encodeURIComponent(username)}`);
+    profileJson = await profileRes.json();
+  } catch(e) { throw new Error(connErr); }
+  if (!profileJson.ok) throw new Error(`プロフィール取得失敗: ${profileJson.error}`);
+
+  // リール/カルーセル取得（月別）
+  let postsJson = { reel: 0, carousel: 0, feed: 0 };
+  try {
+    const postsRes = await fetch(`${SC_BASE}/api/ig_posts?handle=${encodeURIComponent(username)}&year=${year}&month=${month}`);
+    postsJson = await postsRes.json();
+  } catch(e) { /* 投稿数が取れなくてもフォロワーは保存 */ }
+
+  return { profileJson, postsJson };
+}
+
 async function fetchIgDataBySC(sid) {
   const data = load();
   const s = data.students.find(x => x.id === sid);
@@ -2358,25 +2379,25 @@ async function fetchIgDataBySC(sid) {
   const username = (s.igAccount || s.igUser || '').replace('@','');
   if (!username) { alert('Instagramユーザー名が未設定です。\n編集から「Instagramアカウント」を入力してください。'); return; }
 
-  let res, json;
+  let result;
   try {
-    res  = await fetch(`${SC_BASE}/api/ig_profile?handle=${encodeURIComponent(username)}`);
-    json = await res.json();
+    result = await scFetchOne(username, currentYear, currentMonth);
   } catch(e) {
-    alert('❌ ダッシュボードアプリ（localhost:8000）に接続できません。\n「美容師リール伸びてる」アプリを起動してください。');
+    alert(e.message);
     return;
   }
-  if (!json.ok) { alert(`❌ 取得失敗：${json.error}`); return; }
+  const { profileJson, postsJson } = result;
 
   const key = mKey(currentYear, currentMonth);
   if (!s.sns) s.sns = {};
   if (!s.sns[key]) s.sns[key] = {};
-  s.sns[key].igF   = json.followers || 0;
-  s.sns[key].posts = json.posts || 0;
-  if (json.username) s.igUser = json.username;
+  s.sns[key].igF  = profileJson.followers || 0;
+  s.sns[key].reel = postsJson.reel || 0;
+  s.sns[key].feed = postsJson.carousel || 0;
+  if (profileJson.username) s.igUser = profileJson.username;
   persist(data);
 
-  alert(`✅ 取得成功！\n\n@${json.username}\nフォロワー: ${(json.followers||0).toLocaleString()}人\n投稿数: ${(json.posts||0).toLocaleString()}件\n\n${currentYear}年${currentMonth}月に反映しました。`);
+  alert(`✅ 取得成功！\n\n@${profileJson.username}\nフォロワー: ${(profileJson.followers||0).toLocaleString()}人\nリール: ${postsJson.reel}本\nカルーセル: ${postsJson.carousel}本\n\n${currentYear}年${currentMonth}月に反映しました。`);
   loadSns();
 }
 
@@ -2387,25 +2408,25 @@ async function fetchAllStudentsBySC() {
     const username = (s.igAccount || s.igUser || '').replace('@','');
     if (!username) { skipped++; continue; }
     try {
-      const res  = await fetch(`${SC_BASE}/api/ig_profile?handle=${encodeURIComponent(username)}`);
-      const json = await res.json();
-      if (!json.ok) { failed.push(s.name + `（${json.error}）`); continue; }
+      const { profileJson, postsJson } = await scFetchOne(username, currentYear, currentMonth);
+      if (!profileJson.ok) { failed.push(s.name + `（${profileJson.error}）`); continue; }
       const key = mKey(currentYear, currentMonth);
       if (!s.sns) s.sns = {};
       if (!s.sns[key]) s.sns[key] = {};
-      s.sns[key].igF   = json.followers || 0;
-      s.sns[key].posts = json.posts || 0;
-      if (json.username) s.igUser = json.username;
+      s.sns[key].igF  = profileJson.followers || 0;
+      s.sns[key].reel = postsJson.reel || 0;
+      s.sns[key].feed = postsJson.carousel || 0;
+      if (profileJson.username) s.igUser = profileJson.username;
       success++;
-      // APIレート制限対策：1秒間隔
-      await new Promise(r => setTimeout(r, 1000));
+      // APIレート制限対策：2秒間隔（profile + posts で2コール）
+      await new Promise(r => setTimeout(r, 2000));
     } catch(e) {
-      alert('❌ ダッシュボードアプリ（localhost:8000）に接続できません。\n「美容師リール伸びてる」アプリを起動してください。');
+      alert(e.message);
       return;
     }
   }
   persist(data);
-  let msg = `✅ ${success}名のInstagramデータを取得しました。`;
+  let msg = `✅ ${success}名のInstagramデータを取得しました。\n（フォロワー・リール・カルーセル）`;
   if (skipped) msg += `\n（${skipped}名はIGアカウント未設定のためスキップ）`;
   if (failed.length) msg += `\n\n⚠ 取得できなかった塾生：\n${failed.join('\n')}`;
   alert(msg);
